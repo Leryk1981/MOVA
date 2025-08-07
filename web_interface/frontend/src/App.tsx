@@ -5,6 +5,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 
 import Layout from '@/components/common/Layout';
 import Dashboard from '@/pages/Dashboard';
+import Dashboards from '@/pages/Dashboards';
 import Editor from '@/pages/Editor';
 import Monitor from '@/pages/Monitor';
 import ML from '@/pages/ML';
@@ -28,6 +29,16 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboards"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboards />
               </Layout>
             </ProtectedRoute>
           }

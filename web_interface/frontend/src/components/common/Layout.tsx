@@ -26,6 +26,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
+    { name: 'Dashboards', href: '/dashboards', icon: ChartBarIcon },
     { name: 'Редактор', href: '/editor', icon: DocumentTextIcon },
     { name: 'Файли', href: '/files', icon: FolderIcon },
     { name: 'ML', href: '/ml', icon: CpuChipIcon },
