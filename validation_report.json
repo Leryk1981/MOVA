@@ -1,0 +1,47 @@
+{
+  "basic_validation": {
+    "is_valid": true,
+    "errors": []
+  },
+  "advanced_validation": {
+    "is_valid": false,
+    "summary": {
+      "total_errors": 1,
+      "total_warnings": 2,
+      "statistics": {
+        "intents": 3,
+        "protocols": 2,
+        "tools": 2,
+        "steps": 7,
+        "references": 0,
+        "duplicates": 1
+      }
+    },
+    "errors": [
+      {
+        "field": "steps",
+        "message": "Duplicate step ID: end",
+        "type": "error"
+      }
+    ],
+    "warnings": [
+      {
+        "field": "steps",
+        "message": "Protocol 'weather_protocol' has orphaned steps: {'ask_city', 'call_weather_api', 'end', 'display_weather'}",
+        "type": "warning"
+      },
+      {
+        "field": "steps",
+        "message": "Protocol 'greeting_protocol' has orphaned steps: {'greet', 'ask_how_help', 'end'}",
+        "type": "warning"
+      }
+    ],
+    "recommendations": [
+      "Remove duplicate IDs to ensure unique component identification",
+      "Address warnings to improve data quality and consistency"
+    ]
+  },
+  "overall_valid": false,
+  "total_errors": 1,
+  "total_warnings": 2
+}

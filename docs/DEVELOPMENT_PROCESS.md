@@ -16,16 +16,18 @@
 - ✅ GPL v3 license
 - ✅ Initial documentation
 
-#### Phase 2: Language Enhancement (In Progress)
-- 🔄 Advanced intent recognition
-- 🔄 Machine learning integration
-- 🔄 Context management improvements
-- 🔄 Error handling and recovery
-- 🔄 Performance optimization
+#### Phase 2: Language Enhancement (Completed)
+- ✅ Advanced validation system
+- ✅ Redis integration for state management
+- ✅ LLM client integration (OpenAI, OpenRouter)
+- ✅ Enhanced CLI with testing capabilities
+- ✅ Step-by-step execution mode
+- ✅ Comprehensive error handling
+- ✅ Performance optimizations
 
-#### Phase 3: Ecosystem Development (Planned)
-- 📋 Plugin system
-- 📋 Visual editor
+#### Phase 3: Ecosystem Development (In Progress)
+- 🔄 Plugin system design
+- 🔄 Visual editor prototype
 - 📋 Cloud integration
 - 📋 Community tools
 - 📋 Enterprise features
@@ -55,8 +57,12 @@
 1. **MovaEngine**: Main processing engine that orchestrates all operations
 2. **Parsers**: Handle JSON and YAML file formats
 3. **Validators**: Ensure data integrity and schema compliance
+   - **SchemaValidator**: Basic schema validation
+   - **AdvancedValidator**: Comprehensive validation with cross-references
 4. **Models**: Pydantic-based data structures for type safety
 5. **CLI**: Command-line interface for user interaction
+6. **RedisManager**: State management and session persistence
+7. **LLMClient**: Integration with various LLM providers
 
 #### Data Flow
 
@@ -120,16 +126,18 @@ Input File → Parser → Validator → Engine → Output
 - ✅ GPL v3 ліцензія
 - ✅ Початкова документація
 
-#### Етап 2: Покращення мови (В процесі)
-- 🔄 Розширене розпізнавання намірів
-- 🔄 Інтеграція машинного навчання
-- 🔄 Покращення управління контекстом
-- 🔄 Обробка помилок та відновлення
-- 🔄 Оптимізація продуктивності
+#### Етап 2: Покращення мови (Завершено)
+- ✅ Розширена система валідації
+- ✅ Інтеграція з Redis для управління станом
+- ✅ Інтеграція клієнта LLM (OpenAI, OpenRouter)
+- ✅ Розширений CLI з можливостями тестування
+- ✅ Режим покрокового виконання
+- ✅ Комплексна обробка помилок
+- ✅ Оптимізація продуктивності
 
-#### Етап 3: Розвиток екосистеми (Заплановано)
-- 📋 Система плагінів
-- 📋 Візуальний редактор
+#### Етап 3: Розвиток екосистеми (В процесі)
+- 🔄 Проектування системи плагінів
+- 🔄 Прототип візуального редактора
 - 📋 Хмарна інтеграція
 - 📋 Інструменти спільноти
 - 📋 Корпоративні функції
@@ -159,8 +167,12 @@ Input File → Parser → Validator → Engine → Output
 1. **MovaEngine**: Основний обробний движок, який оркеструє всі операції
 2. **Парсери**: Обробляють формати файлів JSON та YAML
 3. **Валідатори**: Забезпечують цілісність даних та відповідність схемі
+   - **SchemaValidator**: Базова валідація схем
+   - **AdvancedValidator**: Комплексна валідація з перехресними посиланнями
 4. **Моделі**: Структури даних на основі Pydantic для типобезпеки
 5. **CLI**: Інтерфейс командного рядка для взаємодії з користувачем
+6. **RedisManager**: Управління станом та збереження сесій
+7. **LLMClient**: Інтеграція з різними провайдерами LLM
 
 #### Потік даних
 

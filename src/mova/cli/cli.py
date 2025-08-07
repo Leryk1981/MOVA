@@ -4,6 +4,7 @@ Command Line Interface for MOVA language
 """
 
 import click
+import json
 import os
 from pathlib import Path
 from rich.console import Console
@@ -74,8 +75,9 @@ def parse(file_path, validate, output):
                 console.print(Panel("✅ File validation successful", style="green"))
             else:
                 console.print(Panel("❌ File validation failed", style="red"))
-                for error in errors:
-                    console.print(f"  • {error}", style="red")
+                if errors:
+                    for error in errors:
+                        console.print(f"  • {error}", style="red")
         
         # Display parsed data
         display_parsed_data(data)
@@ -91,7 +93,10 @@ def parse(file_path, validate, output):
 
 @main.command()
 @click.argument('file_path', type=click.Path(exists=True))
-def validate(file_path):
+@click.option('--advanced', '-a', is_flag=True, help='Use advanced validation / Використовувати розширену валідацію')
+@click.option('--detailed', '-d', is_flag=True, help='Show detailed validation report / Показати детальний звіт валідації')
+@click.option('--output', '-o', type=click.Path(), help='Save validation report to file / Зберегти звіт валідації в файл')
+def validate(file_path, advanced, detailed, output):
     """Validate MOVA file schema / Валідувати схему MOVA файлу"""
     try:
         file_path = Path(file_path)
@@ -102,18 +107,41 @@ def validate(file_path):
         else:
             parser = MovaJsonParser()
         
-        # Parse and validate
+        # Parse file
         data = parser.parse_file(str(file_path))
-        validator = MovaSchemaValidator()
-        is_valid, errors = validator.validate_mova_file(data)
         
-        if is_valid:
-            console.print(Panel("✅ File is valid", style="green"))
-        else:
-            console.print(Panel("❌ File is invalid", style="red"))
-            for error in errors:
-                console.print(f"  • {error}", style="red")
+        # Validate schema
+        validator = MovaSchemaValidator()
+        
+        if advanced:
+            # Advanced validation
+            try:
+                report = validator.validate_mova_file_advanced(data)
                 
+                if detailed:
+                    display_advanced_validation_report(report)
+                else:
+                    display_validation_summary(report)
+                
+                # Save report if requested
+                if output:
+                    save_validation_report(report, output)
+            except Exception as e:
+                console.print(f"❌ Advanced validation error: {e}", style="red")
+                logger.error(f"Advanced validation error: {e}")
+                
+        else:
+            # Basic validation
+            is_valid, errors = validator.validate_mova_file(data)
+            
+            if is_valid:
+                console.print(Panel("✅ File validation successful", style="green"))
+            else:
+                console.print(Panel("❌ File validation failed", style="red"))
+                if errors:
+                    for error in errors:
+                        console.print(f"  • {error}", style="red")
+        
     except Exception as e:
         console.print(f"❌ Error: {e}", style="red")
         logger.error(f"CLI validate error: {e}")
@@ -404,6 +432,87 @@ def test_all_components(engine, data, verbose, dry_run):
             console.print(f"❌ Redis test error: {e}")
     
     console.print("\n✅ Component testing completed")
+
+
+def display_validation_summary(report: dict):
+    """Display validation summary / Показати підсумок валідації"""
+    console.print(Panel("🔍 MOVA Validation Summary", style="blue"))
+    
+    # Overall status
+    if report["overall_valid"]:
+        console.print("✅ Overall validation: PASSED", style="green")
+    else:
+        console.print("❌ Overall validation: FAILED", style="red")
+    
+    # Statistics
+    stats = report["advanced_validation"]["summary"]["statistics"]
+    console.print(f"📊 Components: {stats['intents']} intents, {stats['protocols']} protocols, {stats['tools']} tools")
+    console.print(f"📋 Steps: {stats['steps']} total")
+    
+    # Issues
+    total_errors = report["total_errors"]
+    total_warnings = report["total_warnings"]
+    
+    if total_errors > 0:
+        console.print(f"❌ Errors: {total_errors}", style="red")
+    if total_warnings > 0:
+        console.print(f"⚠️  Warnings: {total_warnings}", style="yellow")
+    
+    if total_errors == 0 and total_warnings == 0:
+        console.print("🎉 No issues found!", style="green")
+
+
+def display_advanced_validation_report(report: dict):
+    """Display detailed validation report / Показати детальний звіт валідації"""
+    console.print(Panel("🔍 MOVA Advanced Validation Report", style="blue"))
+    
+    # Basic validation
+    basic = report["basic_validation"]
+    if basic["is_valid"]:
+        console.print("✅ Basic schema validation: PASSED", style="green")
+    else:
+        console.print("❌ Basic schema validation: FAILED", style="red")
+        for error in basic["errors"]:
+            console.print(f"  • {error}", style="red")
+    
+    # Advanced validation
+    advanced = report["advanced_validation"]
+    console.print(f"\n📊 Advanced Validation Statistics:")
+    stats = advanced["summary"]["statistics"]
+    console.print(f"  • Intents: {stats['intents']}")
+    console.print(f"  • Protocols: {stats['protocols']}")
+    console.print(f"  • Tools: {stats['tools']}")
+    console.print(f"  • Steps: {stats['steps']}")
+    console.print(f"  • Duplicates: {stats['duplicates']}")
+    console.print(f"  • Invalid references: {stats['references']}")
+    
+    # Errors
+    if advanced["errors"]:
+        console.print(f"\n❌ Errors ({len(advanced['errors'])}):", style="red")
+        for error in advanced["errors"]:
+            console.print(f"  • {error['field']}: {error['message']}", style="red")
+    
+    # Warnings
+    if advanced["warnings"]:
+        console.print(f"\n⚠️  Warnings ({len(advanced['warnings'])}):", style="yellow")
+        for warning in advanced["warnings"]:
+            console.print(f"  • {warning['field']}: {warning['message']}", style="yellow")
+    
+    # Recommendations
+    if advanced["recommendations"]:
+        console.print(f"\n💡 Recommendations:", style="cyan")
+        for rec in advanced["recommendations"]:
+            console.print(f"  • {rec}", style="cyan")
+
+
+def save_validation_report(report: dict, output_path: str):
+    """Save validation report to file / Зберегти звіт валідації в файл"""
+    try:
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+        console.print(f"📄 Validation report saved to: {output_path}", style="green")
+    except Exception as e:
+        console.print(f"❌ Failed to save report: {e}", style="red")
 
 
 def execute_protocol_step_by_step(engine, protocol, session_id, verbose):

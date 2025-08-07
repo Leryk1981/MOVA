@@ -8,6 +8,8 @@ from typing import Dict, List, Any, Optional, Tuple
 from jsonschema import validate, ValidationError
 from loguru import logger
 
+from .advanced_validator import MovaAdvancedValidator
+
 
 class MovaSchemaValidator:
     """
@@ -52,6 +54,25 @@ class MovaSchemaValidator:
         except ValidationError as e:
             errors.append(f"Main structure: {e.message}")
         
+        # Run advanced validation
+        advanced_validator = MovaAdvancedValidator()
+        
+        # Run all validation checks manually
+        advanced_validator.validate_mova_structure(data)
+        advanced_validator.validate_unique_ids(data)
+        advanced_validator.validate_references(data)
+        advanced_validator.validate_step_consistency(data)
+        advanced_validator.validate_api_endpoints(data)
+        advanced_validator.validate_condition_syntax(data)
+        advanced_validator.validate_placeholder_syntax(data)
+        
+        # Get advanced validation report
+        advanced_report = advanced_validator.generate_validation_report()
+        
+        # Add advanced validation errors
+        for error in advanced_report.get("errors", []):
+            errors.append(f"{error['field']}: {error['message']}")
+        
         is_valid = len(errors) == 0
         if is_valid:
             logger.info("MOVA file validation successful")
@@ -59,6 +80,151 @@ class MovaSchemaValidator:
             logger.warning(f"MOVA file validation failed: {len(errors)} errors")
         
         return is_valid, errors
+    
+    def validate_mova_file_advanced(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate MOVA file with advanced validation features
+        Валідувати MOVA файл з розширеними можливостями валідації
+        
+        Args:
+            data: MOVA data to validate / Дані MOVA для валідації
+            
+        Returns:
+            Dict[str, Any]: Comprehensive validation report / Комплексний звіт валідації
+        """
+        # Basic schema validation only (without advanced validation)
+        errors = []
+        try:
+            validate(instance=data, schema=self.schemas["mova"])
+            basic_valid = True
+        except ValidationError as e:
+            errors.append(f"Main structure: {e.message}")
+            basic_valid = False
+        
+        # Advanced validation
+        advanced_validator = MovaAdvancedValidator()
+        
+        # Run all validation checks manually
+        advanced_validator.validate_mova_structure(data)
+        advanced_validator.validate_unique_ids(data)
+        advanced_validator.validate_references(data)
+        advanced_validator.validate_step_consistency(data)
+        advanced_validator.validate_api_endpoints(data)
+        advanced_validator.validate_condition_syntax(data)
+        advanced_validator.validate_placeholder_syntax(data)
+        
+        # Get advanced validation report
+        advanced_report = advanced_validator.generate_validation_report()
+        
+        # Combine results
+        combined_report = {
+            "basic_validation": {
+                "is_valid": basic_valid,
+                "errors": errors
+            },
+            "advanced_validation": advanced_report,
+            "overall_valid": basic_valid and advanced_report["is_valid"],
+            "total_errors": len(errors) + len(advanced_report.get("errors", [])),
+            "total_warnings": len(advanced_report.get("warnings", []))
+        }
+        
+        return combined_report
+    
+    def validate_schema_compatibility(self, data: Dict[str, Any], target_version: str = "2.2") -> Dict[str, Any]:
+        """
+        Validate schema compatibility with target version
+        Валідувати сумісність схеми з цільовою версією
+        """
+        version = data.get("version", "unknown")
+        
+        compatibility_report = {
+            "current_version": version,
+            "target_version": target_version,
+            "is_compatible": True,
+            "migration_notes": []
+        }
+        
+        # Version compatibility checks
+        if version != target_version:
+            compatibility_report["is_compatible"] = False
+            compatibility_report["migration_notes"].append(
+                f"Schema version {version} differs from target {target_version}"
+            )
+        
+        # Check for deprecated fields
+        deprecated_fields = self._check_deprecated_fields(data, version)
+        if deprecated_fields:
+            compatibility_report["migration_notes"].extend(deprecated_fields)
+        
+        return compatibility_report
+    
+    def _check_deprecated_fields(self, data: Dict[str, Any], version: str) -> List[str]:
+        """Check for deprecated fields based on version / Перевірити застарілі поля на основі версії"""
+        deprecated_notes = []
+        
+        # Version-specific deprecation checks
+        if version < "2.2":
+            # Check for old field names
+            for protocol in data.get("protocols", []):
+                if "protocol_id" in protocol:
+                    deprecated_notes.append("'protocol_id' is deprecated, use 'name' instead")
+                if "step_id" in protocol:
+                    deprecated_notes.append("'step_id' is deprecated, use 'id' instead")
+        
+        return deprecated_notes
+    
+    def generate_schema_documentation(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate documentation from schema
+        Згенерувати документацію зі схеми
+        """
+        doc = {
+            "version": data.get("version", "unknown"),
+            "components": {
+                "intents": [],
+                "protocols": [],
+                "tools": [],
+                "profiles": [],
+                "contracts": []
+            },
+            "statistics": {
+                "total_intents": len(data.get("intents", [])),
+                "total_protocols": len(data.get("protocols", [])),
+                "total_tools": len(data.get("tools", [])),
+                "total_steps": sum(len(p.get("steps", [])) for p in data.get("protocols", [])),
+                "total_profiles": len(data.get("profiles", [])),
+                "total_contracts": len(data.get("contracts", []))
+            }
+        }
+        
+        # Document intents
+        for intent in data.get("intents", []):
+            doc["components"]["intents"].append({
+                "name": intent.get("name"),
+                "patterns": len(intent.get("patterns", [])),
+                "has_template": bool(intent.get("response_template"))
+            })
+        
+        # Document protocols
+        for protocol in data.get("protocols", []):
+            steps = protocol.get("steps", [])
+            doc["components"]["protocols"].append({
+                "name": protocol.get("name"),
+                "steps_count": len(steps),
+                "has_conditions": any(step.get("conditions") for step in steps),
+                "has_api_calls": any(step.get("tool_api_id") for step in steps)
+            })
+        
+        # Document tools
+        for tool in data.get("tools", []):
+            doc["components"]["tools"].append({
+                "id": tool.get("id"),
+                "name": tool.get("name"),
+                "method": tool.get("method", "GET"),
+                "has_auth": bool(tool.get("authentication"))
+            })
+        
+        return doc
     
     def _get_mova_schema(self) -> Dict[str, Any]:
         """Get main MOVA schema / Отримати основну схему MOVA"""

@@ -11,9 +11,12 @@ MOVA (Machine-Operable Verbal Actions) is a declarative language designed for in
 - **Declarative Language**: JSON-based syntax for describing LLM interactions
 - **Modular Design**: Separation of concerns into distinct classes (intent, protocol, tool_api, etc.)
 - **Multi-step Scenarios**: Support for complex workflows and branching logic
-- **API Integration**: Built-in support for external API calls
+- **API Integration**: Built-in support for external API calls with retry mechanisms
 - **Context Management**: Advanced session and profile management
 - **Redis Integration**: Scalable session storage with TTL support
+- **LLM Integration**: Support for OpenAI/OpenRouter API with configurable parameters
+- **Advanced Validation**: Comprehensive validation with detailed reports and recommendations
+- **CLI Extensions**: Component testing and step-by-step execution
 - **Bilingual Documentation**: Full documentation in English and Ukrainian
 
 ### Quick Start
@@ -252,11 +255,15 @@ MOVA/
 ├── src/mova/            # Вихідний код
 │   ├── core/           # Основні компоненти мови
 │   ├── parser/         # JSON/YAML парсери
-│   ├── validator/      # Валідація схем
+│   ├── validator/      # Валідація схем (базова + розширена)
 │   ├── redis_manager.py # Redis інтеграція
+│   ├── llm_client.py   # LLM інтеграція
 │   └── cli/           # Інтерфейс командного рядка
 ├── tests/              # Набір тестів
-│   └── test_redis_integration.py # Тести Redis
+│   ├── test_redis_integration.py # Тести Redis
+│   ├── test_llm_integration.py   # Тести LLM
+│   ├── test_advanced_validation.py # Тести розширеної валідації
+│   └── test_cli_extensions.py    # Тести CLI розширень
 ├── examples/           # Приклади використання
 │   └── redis_example.py # Приклад використання Redis
 └── schemas/           # JSON схеми
@@ -298,7 +305,91 @@ python -c "from src.mova.cli.cli import main; main()" run example.json \
 
 ### Реальні HTTP API виклики
 
-MOVA SDK 2.2 підтримує реальні HTTP API виклики з механізмами повтору:
+MOVA SDK 2.2 підтримує реальні HTTP виклики до зовнішніх API:
+
+```python
+# Приклад ToolAPI конфігурації
+{
+  "id": "weather_api",
+  "name": "Weather Service",
+  "endpoint": "https://api.weatherapi.com/v1/current.json",
+  "method": "GET",
+  "parameters": {
+    "key": "{session.data.api_key}",
+    "q": "{session.data.city}"
+  },
+  "authentication": {
+    "type": "api_key",
+    "credentials": {
+      "api_key": "{session.data.weather_api_key}"
+    }
+  }
+}
+```
+
+**Можливості:**
+- 🔄 **Retry механізм**: Автоматичні повторні спроби при помилках
+- 🔐 **Автентифікація**: Підтримка API key, Basic auth, Bearer токенів
+- 🔧 **Плейсхолдери**: Динамічна заміна параметрів з сесійних даних
+- ⏱️ **Таймаути**: Налаштовувані таймаути для запитів
+- 📊 **Обробка помилок**: Детальна обробка та логування помилок API
+
+### Розширена валідація
+
+MOVA SDK 2.2 включає комплексну систему валідації з розширеними можливостями:
+
+#### Базова валідація
+```bash
+mova validate examples/basic_example.json
+```
+
+#### Розширена валідація
+```bash
+# Розширена валідація з підсумком
+mova validate examples/basic_example.json --advanced
+
+# Детальний звіт валідації
+mova validate examples/basic_example.json --advanced --detailed
+
+# Збереження звіту в файл
+mova validate examples/basic_example.json --advanced --output report.json
+```
+
+#### Можливості розширеної валідації
+
+**Перевірка унікальності:**
+- Унікальність ID для всіх компонентів
+- Відсутність дублікатів в intents, protocols, tools
+
+**Валідація посилань:**
+- Перевірка правильності посилань між кроками
+- Валідація tool_api_id посилань
+- Виявлення циклічних посилань
+
+**Консистентність кроків:**
+- Перевірка логічної послідовності кроків
+- Виявлення сиротських кроків
+- Валідація next_step_id посилань
+
+**API ендпоінти:**
+- Валідація URL форматів
+- Перевірка HTTP методів
+- Валідація автентифікації
+
+**Синтаксис умов:**
+- Перевірка операторів умов
+- Валідація синтаксису змінних
+- Контроль правильності виразів
+
+**Плейсхолдери:**
+- Валідація синтаксису плейсхолдерів
+- Перевірка формату `{session.data.key}`
+- Контроль правильності заміни
+
+**Звіти та рекомендації:**
+- Детальна статистика компонентів
+- Список помилок та попереджень
+- Автоматичні рекомендації для виправлення
 
 ```python
 from src.mova.core.models import ToolAPI
