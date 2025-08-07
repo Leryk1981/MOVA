@@ -9,6 +9,8 @@ import {
   Bars3Icon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
+import WebSocketStatus from './WebSocketStatus';
+import NotificationCenter from './NotificationCenter';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -125,6 +127,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
             <div className="flex flex-1"></div>
             <div className="flex items-center gap-x-4 lg:gap-x-6">
+              {/* WebSocket Status */}
+              <WebSocketStatus showDetails={false} />
+              
+              {/* Notification Center */}
+              <NotificationCenter />
+              
               {/* Status indicator */}
               <div className="flex items-center space-x-2">
                 <div className="h-2 w-2 rounded-full bg-green-400"></div>
