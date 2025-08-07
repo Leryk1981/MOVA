@@ -1,0 +1,120 @@
+{
+  "version": "2.0",
+  "intents": [
+    {
+      "name": "greeting",
+      "patterns": ["hello", "hi", "привіт", "доброго дня"],
+      "priority": 1,
+      "intent_type": "greeting",
+      "response_template": "Привіт! Як я можу вам допомогти?"
+    },
+    {
+      "name": "weather_inquiry",
+      "patterns": ["погода", "weather", "температура", "temperature"],
+      "priority": 2,
+      "intent_type": "question",
+      "response_template": "Я можу допомогти вам з інформацією про погоду. В якому місті?"
+    },
+    {
+      "name": "help_request",
+      "patterns": ["допомога", "help", "допоможіть", "як використовувати"],
+      "priority": 3,
+      "intent_type": "question",
+      "response_template": "Я можу допомогти вам з різними завданнями. Що саме вас цікавить?"
+    }
+  ],
+  "protocols": [
+    {
+      "name": "weather_protocol",
+      "description": "Protocol for getting weather information",
+      "steps": [
+        {
+          "id": "ask_city",
+          "action": "prompt",
+          "prompt": "В якому місті ви хочете дізнатися погоду?"
+        },
+        {
+          "id": "call_weather_api",
+          "action": "tool_api",
+          "tool_api_id": "weather_service",
+          "conditions": [
+            {
+              "variable": "user_input",
+              "operator": "contains",
+              "value": "city"
+            }
+          ]
+        },
+        {
+          "id": "display_weather",
+          "action": "prompt",
+          "prompt": "Ось інформація про погоду: {weather_data}"
+        },
+        {
+          "id": "end",
+          "action": "end"
+        }
+      ]
+    },
+    {
+      "name": "greeting_protocol",
+      "description": "Simple greeting protocol",
+      "steps": [
+        {
+          "id": "greet",
+          "action": "prompt",
+          "prompt": "Привіт! Радий вас бачити!"
+        },
+        {
+          "id": "ask_how_help",
+          "action": "prompt",
+          "prompt": "Як я можу вам допомогти сьогодні?"
+        },
+        {
+          "id": "end",
+          "action": "end"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "id": "weather_service",
+      "name": "Weather API",
+      "endpoint": "https://api.weatherapi.com/v1/current.json",
+      "method": "GET",
+      "parameters": {
+        "key": "{API_KEY}",
+        "q": "{city}",
+        "aqi": "no"
+      }
+    },
+    {
+      "id": "time_service",
+      "name": "Time API",
+      "endpoint": "https://worldtimeapi.org/api/timezone/{timezone}",
+      "method": "GET"
+    }
+  ],
+  "instructions": [
+    {
+      "id": "weather_instruction",
+      "title": "How to get weather information",
+      "content": "To get weather information, ask about weather and provide a city name.",
+      "category": "weather",
+      "tags": ["weather", "temperature", "forecast"]
+    }
+  ],
+  "profiles": [
+    {
+      "user_id": "default_user",
+      "name": "Default User",
+      "preferences": {
+        "language": "uk",
+        "temperature_unit": "celsius"
+      },
+      "language": "uk",
+      "timezone": "Europe/Kiev"
+    }
+  ]
+} 

@@ -1,0 +1,32 @@
+# MOVA - Machine-Operable Verbal Actions
+# Залежності для розробки мови програмування
+
+# Основні залежності
+pydantic>=2.0.0
+jsonschema>=4.0.0
+typing-extensions>=4.0.0
+
+# Для парсингу та обробки JSON
+json5>=0.9.0
+pyyaml>=6.0
+
+# Для тестування
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Для документації
+sphinx>=6.0.0
+sphinx-rtd-theme>=1.0.0
+
+# Для CLI інтерфейсу
+click>=8.0.0
+rich>=13.0.0
+
+# Для логування
+loguru>=0.7.0
+
+# Для роботи з Git
+gitpython>=3.1.0
+
+# Для валідації
+cerberus>=1.3.0 
