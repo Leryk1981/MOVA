@@ -299,12 +299,100 @@ class MovaEngine:
             return {"error": "Tool not found"}
         
         tool = self.tools[step.tool_api_id]
-        # Here would be actual API call
-        # Тут буде реальний виклик API
-        response = f"API call to {tool.endpoint}"
-        session.data[f"step_{step.id}_api_response"] = response
         
-        return {"success": True, "api_response": response}
+        try:
+            # Execute real API call
+            response = self._execute_api_call(tool, session.data)
+            session.data[f"step_{step.id}_api_response"] = response
+            
+            return {"success": True, "api_response": response}
+            
+        except Exception as e:
+            logger.error(f"API step execution failed: {str(e)}")
+            return {"error": f"API execution failed: {str(e)}"}
+    
+    def _execute_api_call(self, tool: ToolAPI, session_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute API call using HTTP client / Виконати API виклик через HTTP клієнт"""
+        import requests
+        
+        try:
+            
+            # Prepare headers
+            headers = tool.headers or {}
+            if tool.authentication:
+                auth_type = tool.authentication.get("type", "")
+                if auth_type == "api_key":
+                    api_key = tool.authentication.get("credentials", {}).get("key", "")
+                    # Replace placeholders in API key
+                    api_key = self._replace_placeholders(api_key, session_data)
+                    headers["Authorization"] = f"Bearer {api_key}"
+                elif auth_type == "basic":
+                    username = tool.authentication.get("credentials", {}).get("username", "")
+                    password = tool.authentication.get("credentials", {}).get("password", "")
+                    import base64
+                    credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+                    headers["Authorization"] = f"Basic {credentials}"
+            
+            # Prepare parameters
+            params = {}
+            if tool.parameters:
+                for key, value in tool.parameters.items():
+                    # Replace placeholders in parameters
+                    if isinstance(value, str):
+                        params[key] = self._replace_placeholders(value, session_data)
+                    else:
+                        params[key] = value
+            
+            # Make API call based on method
+            method = tool.method.upper()
+            endpoint = tool.endpoint
+            
+            logger.info(f"Making {method} request to {endpoint}")
+            
+            # Add retry mechanism
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    if method == "GET":
+                        response = requests.get(endpoint, params=params, headers=headers, timeout=30)
+                    elif method == "POST":
+                        response = requests.post(endpoint, json=params, headers=headers, timeout=30)
+                    elif method == "PUT":
+                        response = requests.put(endpoint, json=params, headers=headers, timeout=30)
+                    elif method == "DELETE":
+                        response = requests.delete(endpoint, headers=headers, timeout=30)
+                    else:
+                        raise ValueError(f"Unsupported HTTP method: {method}")
+                    
+                    response.raise_for_status()
+                    result = response.json()
+                    
+                    logger.info(f"API call successful (attempt {attempt + 1}): {result}")
+                    return result
+                    
+                except requests.exceptions.RequestException as e:
+                    logger.warning(f"API call failed (attempt {attempt + 1}/{max_retries}): {e}")
+                    if attempt == max_retries - 1:
+                        raise
+                    continue
+            
+        except Exception as e:
+            logger.error(f"API call failed: {str(e)}")
+            raise
+    
+    def _replace_placeholders(self, text: str, session_data: Dict[str, Any]) -> str:
+        """Replace placeholders in text with session data / Замінити плейсхолдери в тексті даними сесії"""
+        import re
+        
+        # Find all placeholders like {session.data.key}
+        pattern = r'\{session\.data\.(\w+)\}'
+        
+        def replace_placeholder(match):
+            key = match.group(1)
+            value = session_data.get(key, "")
+            return str(value)
+        
+        return re.sub(pattern, replace_placeholder, text)
     
     def _execute_condition_step(self, step: ProtocolStep, session: Session, **kwargs) -> Dict[str, Any]:
         """Execute condition step / Виконати крок умови"""

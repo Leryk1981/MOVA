@@ -12,6 +12,7 @@ from rich.panel import Panel
 from loguru import logger
 
 from ..core.engine import MovaEngine
+from ..core.models import ProtocolStep
 from ..parser.json_parser import MovaJsonParser
 from ..parser.yaml_parser import MovaYamlParser
 from ..validator.schema_validator import MovaSchemaValidator
@@ -25,8 +26,11 @@ console = Console()
 @click.option('--redis-url', default=None, help='Redis connection URL / URL підключення до Redis')
 @click.option('--llm-api-key', default=None, help='OpenRouter API key / OpenRouter API ключ')
 @click.option('--llm-model', default='openai/gpt-3.5-turbo', help='LLM model to use / Модель LLM для використання')
+@click.option('--llm-temperature', default=0.7, type=float, help='LLM temperature (0.0-2.0) / Температура LLM')
+@click.option('--llm-max-tokens', default=1000, type=int, help='LLM max tokens / Максимальна кількість токенів')
+@click.option('--llm-timeout', default=30, type=int, help='LLM timeout in seconds / Таймаут LLM в секундах')
 @click.pass_context
-def main(ctx, redis_url, llm_api_key, llm_model):
+def main(ctx, redis_url, llm_api_key, llm_model, llm_temperature, llm_max_tokens, llm_timeout):
     """
     MOVA - Machine-Operable Verbal Actions
     
@@ -38,6 +42,9 @@ def main(ctx, redis_url, llm_api_key, llm_model):
     ctx.obj['redis_url'] = redis_url
     ctx.obj['llm_api_key'] = llm_api_key
     ctx.obj['llm_model'] = llm_model
+    ctx.obj['llm_temperature'] = llm_temperature
+    ctx.obj['llm_max_tokens'] = llm_max_tokens
+    ctx.obj['llm_timeout'] = llm_timeout
 
 
 @main.command()
@@ -115,8 +122,10 @@ def validate(file_path):
 @main.command()
 @click.argument('file_path', type=click.Path(exists=True))
 @click.option('--session-id', help='Session ID / ID сесії')
+@click.option('--verbose', '-v', is_flag=True, help='Verbose output / Детальний вивід')
+@click.option('--step-by-step', is_flag=True, help='Execute step by step with confirmation / Виконувати покроково з підтвердженням')
 @click.pass_context
-def run(ctx, file_path, session_id):
+def run(ctx, file_path, session_id, verbose, step_by_step):
     """Run MOVA file / Запустити MOVA файл"""
     # Get global options from context
     redis_url = ctx.obj.get('redis_url')
@@ -142,6 +151,12 @@ def run(ctx, file_path, session_id):
             llm_model=llm_model
         )
         
+        # Update LLM configuration if provided
+        if engine.llm_client:
+            engine.llm_client.config.temperature = llm_temperature
+            engine.llm_client.config.max_tokens = llm_max_tokens
+            engine.llm_client.config.timeout = llm_timeout
+        
         if redis_url:
             console.print(f"🔗 Using Redis: {redis_url}")
         else:
@@ -149,6 +164,9 @@ def run(ctx, file_path, session_id):
             
         if llm_api_key:
             console.print(f"🤖 Using LLM model: {llm_model}")
+            console.print(f"🌡️  Temperature: {llm_temperature}")
+            console.print(f"📝 Max tokens: {llm_max_tokens}")
+            console.print(f"⏱️  Timeout: {llm_timeout}s")
         else:
             console.print("🤖 Using mock LLM responses")
         
@@ -165,11 +183,17 @@ def run(ctx, file_path, session_id):
         if data.get("protocols"):
             for protocol in data["protocols"]:
                 console.print(f"📋 Executing protocol: {protocol['name']}")
-                try:
-                    result = engine.execute_protocol(protocol['name'], session_id)
-                    display_execution_result(result)
-                except Exception as e:
-                    console.print(f"❌ Error executing protocol {protocol['name']}: {e}", style="red")
+                
+                if step_by_step:
+                    # Execute step by step
+                    result = execute_protocol_step_by_step(engine, protocol, session_id, verbose)
+                else:
+                    # Execute normally
+                    try:
+                        result = engine.execute_protocol(protocol['name'], session_id)
+                        display_execution_result(result)
+                    except Exception as e:
+                        console.print(f"❌ Error executing protocol {protocol['name']}: {e}", style="red")
         else:
             console.print("ℹ️  No protocols found in file")
         
@@ -198,6 +222,243 @@ def init():
     except Exception as e:
         console.print(f"❌ Error: {e}", style="red")
         logger.error(f"CLI init error: {e}")
+
+
+@main.command()
+@click.argument('file_path', type=click.Path(exists=True))
+@click.option('--step-id', help='Test specific step by ID / Тестувати конкретний крок за ID')
+@click.option('--api-id', help='Test specific API by ID / Тестувати конкретний API за ID')
+@click.option('--verbose', '-v', is_flag=True, help='Verbose output / Детальний вивід')
+@click.option('--dry-run', is_flag=True, help='Show what would be executed without running / Показати що буде виконано без запуску')
+@click.pass_context
+def test(ctx, file_path, step_id, api_id, verbose, dry_run):
+    """Test MOVA file components / Тестувати компоненти MOVA файлу"""
+    try:
+        # Get global options from context
+        redis_url = ctx.obj.get('redis_url')
+        llm_api_key = ctx.obj.get('llm_api_key')
+        llm_model = ctx.obj.get('llm_model')
+        llm_temperature = ctx.obj.get('llm_temperature')
+        llm_max_tokens = ctx.obj.get('llm_max_tokens')
+        llm_timeout = ctx.obj.get('llm_timeout')
+        
+        file_path = Path(file_path)
+        
+        # Choose parser based on file extension
+        if file_path.suffix.lower() in ['.yaml', '.yml']:
+            parser = MovaYamlParser()
+        else:
+            parser = MovaJsonParser()
+        
+        # Parse file
+        data = parser.parse_file(str(file_path))
+        
+        # Initialize engine
+        engine = MovaEngine(
+            redis_url=redis_url,
+            llm_api_key=llm_api_key,
+            llm_model=llm_model
+        )
+        
+        console.print(Panel("🧪 MOVA Component Testing", style="blue"))
+        
+        if verbose:
+            console.print(f"📁 File: {file_path}")
+            console.print(f"🔗 Redis: {redis_url or 'In-memory'}")
+            console.print(f"🤖 LLM: {llm_model or 'Mock'}")
+        
+        # Load data into engine
+        load_data_to_engine(engine, data)
+        
+        # Test specific components
+        if step_id:
+            test_specific_step(engine, data, step_id, verbose, dry_run)
+        elif api_id:
+            test_specific_api(engine, data, api_id, verbose, dry_run)
+        else:
+            # Test all components
+            test_all_components(engine, data, verbose, dry_run)
+        
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"CLI test error: {e}")
+
+
+def test_specific_step(engine, data, step_id, verbose, dry_run):
+    """Test a specific step / Тестувати конкретний крок"""
+    console.print(f"\n🎯 Testing step: {step_id}")
+    
+    # Find step in protocols
+    step_found = False
+    for protocol in data.get("protocols", []):
+        for step in protocol.get("steps", []):
+            if step.get("id") == step_id:
+                step_found = True
+                console.print(f"📋 Found in protocol: {protocol.get('name')}")
+                
+                if dry_run:
+                    console.print(f"🔍 Would test step: {step}")
+                else:
+                    # Create test session
+                    session = engine.create_session("test_user")
+                    
+                    # Execute step
+                    if step.get("action") == "prompt":
+                        result = engine._execute_prompt_step(
+                            ProtocolStep(**step), session
+                        )
+                        console.print(f"✅ Step result: {result}")
+                    elif step.get("action") == "tool_api":
+                        result = engine._execute_api_step(
+                            ProtocolStep(**step), session
+                        )
+                        console.print(f"✅ API result: {result}")
+                    else:
+                        console.print(f"⚠️  Action type not supported for testing: {step.get('action')}")
+                
+                break
+        if step_found:
+            break
+    
+    if not step_found:
+        console.print(f"❌ Step '{step_id}' not found in any protocol")
+
+
+def test_specific_api(engine, data, api_id, verbose, dry_run):
+    """Test a specific API / Тестувати конкретний API"""
+    console.print(f"\n🔌 Testing API: {api_id}")
+    
+    # Find API in tools
+    api_found = False
+    for tool in data.get("tools", []):
+        if tool.get("id") == api_id:
+            api_found = True
+            console.print(f"📋 Found API: {tool.get('name')}")
+            console.print(f"🌐 Endpoint: {tool.get('endpoint')}")
+            
+            if dry_run:
+                console.print(f"🔍 Would test API: {tool}")
+            else:
+                # Test API call
+                try:
+                    # Convert tool dict to ToolAPI object
+                    from src.mova.core.models import ToolAPI
+                    tool_obj = ToolAPI(**tool)
+                    result = engine._execute_api_call(tool_obj, {})
+                    console.print(f"✅ API test result: {result}")
+                except Exception as e:
+                    console.print(f"❌ API test failed: {e}")
+            
+            break
+    
+    if not api_found:
+        console.print(f"❌ API '{api_id}' not found in tools")
+
+
+def test_all_components(engine, data, verbose, dry_run):
+    """Test all components / Тестувати всі компоненти"""
+    console.print("\n🔍 Testing all components...")
+    
+    # Test intents
+    intents = data.get("intents", [])
+    console.print(f"📋 Intents: {len(intents)} found")
+    for intent in intents:
+        console.print(f"  • {intent.get('name')} ({len(intent.get('patterns', []))} patterns)")
+    
+    # Test protocols
+    protocols = data.get("protocols", [])
+    console.print(f"📋 Protocols: {len(protocols)} found")
+    for protocol in protocols:
+        steps = protocol.get("steps", [])
+        console.print(f"  • {protocol.get('name')} ({len(steps)} steps)")
+        if verbose:
+            for step in steps:
+                console.print(f"    - {step.get('id')}: {step.get('action')}")
+    
+    # Test tools
+    tools = data.get("tools", [])
+    console.print(f"🔌 Tools: {len(tools)} found")
+    for tool in tools:
+        console.print(f"  • {tool.get('name')} ({tool.get('method', 'GET')} {tool.get('endpoint')})")
+    
+    # Test LLM connection if available
+    if engine.llm_client:
+        console.print("\n🤖 Testing LLM connection...")
+        try:
+            if engine.llm_client.test_connection():
+                console.print("✅ LLM connection successful")
+            else:
+                console.print("❌ LLM connection failed")
+        except Exception as e:
+            console.print(f"❌ LLM test error: {e}")
+    
+    # Test Redis connection if available
+    if engine.redis_manager:
+        console.print("\n🔗 Testing Redis connection...")
+        try:
+            if engine.redis_manager.is_connected():
+                console.print("✅ Redis connection successful")
+            else:
+                console.print("❌ Redis connection failed")
+        except Exception as e:
+            console.print(f"❌ Redis test error: {e}")
+    
+    console.print("\n✅ Component testing completed")
+
+
+def execute_protocol_step_by_step(engine, protocol, session_id, verbose):
+    """Execute protocol step by step with user confirmation / Виконати протокол покроково з підтвердженням користувача"""
+    from rich.prompt import Confirm
+    
+    console.print(f"\n🎯 Step-by-step execution of protocol: {protocol['name']}")
+    
+    steps = protocol.get("steps", [])
+    results = []
+    
+    for i, step in enumerate(steps, 1):
+        console.print(f"\n📋 Step {i}/{len(steps)}: {step.get('id')} ({step.get('action')})")
+        
+        if verbose:
+            console.print(f"   Details: {step}")
+        
+        # Ask for confirmation
+        if not Confirm.ask(f"Execute step {i}?"):
+            console.print("⏸️  Step skipped")
+            continue
+        
+        try:
+            # Execute step
+            session = engine.sessions.get(session_id)
+            if not session:
+                console.print("❌ Session not found")
+                break
+            
+            # Convert step dict to ProtocolStep object
+            from src.mova.core.models import ProtocolStep
+            step_obj = ProtocolStep(**step)
+            
+            # Execute step
+            result = engine._execute_step(step_obj, session)
+            results.append(result)
+            
+            console.print(f"✅ Step {i} completed: {result}")
+            
+            # Show session data if verbose
+            if verbose:
+                console.print(f"   Session data: {session.data}")
+            
+        except Exception as e:
+            console.print(f"❌ Step {i} failed: {e}")
+            results.append({"error": str(e)})
+            
+            if not Confirm.ask("Continue with next step?"):
+                break
+    
+    return {
+        "protocol": protocol['name'],
+        "steps_executed": len(results),
+        "results": results
+    }
 
 
 def display_parsed_data(data: dict):

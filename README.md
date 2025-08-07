@@ -147,6 +147,26 @@ MOVA/
 # Parse MOVA file
 python -c "from src.mova.cli.cli import main; main()" parse example.json
 
+# Test components
+python -c "from src.mova.cli.cli import main; main()" test example.json --verbose
+
+# Test specific step
+python -c "from src.mova.cli.cli import main; main()" test example.json --step-id step1
+
+# Test specific API
+python -c "from src.mova.cli.cli import main; main()" test example.json --api-id api1
+
+# Run with step-by-step execution
+python -c "from src.mova.cli.cli import main; main()" run example.json --step-by-step
+
+# Run with LLM parameters
+python -c "from src.mova.cli.cli import main; main()" run example.json \
+  --llm-api-key "your-key" \
+  --llm-model "openai/gpt-4" \
+  --llm-temperature 0.7 \
+  --llm-max-tokens 1000
+```
+
 # Validate schema
 python -c "from src.mova.cli.cli import main; main()" validate example.json
 
@@ -241,6 +261,77 @@ MOVA/
 │   └── redis_example.py # Приклад використання Redis
 └── schemas/           # JSON схеми
 ```
+
+### CLI розширення
+
+MOVA SDK 2.2 включає потужні розширення CLI для тестування та діагностики:
+
+#### Тестування компонентів
+```bash
+# Тестувати всі компоненти
+python -c "from src.mova.cli.cli import main; main()" test example.json --verbose
+
+# Тестувати конкретний крок
+python -c "from src.mova.cli.cli import main; main()" test example.json --step-id step1
+
+# Тестувати конкретний API
+python -c "from src.mova.cli.cli import main; main()" test example.json --api-id api1
+
+# Режим dry run
+python -c "from src.mova.cli.cli import main; main()" test example.json --dry-run
+```
+
+#### Покрокове виконання
+```bash
+# Виконувати протокол покроково з підтвердженням
+python -c "from src.mova.cli.cli import main; main()" run example.json --step-by-step
+```
+
+#### Параметри LLM
+```bash
+# Налаштувати поведінку LLM
+python -c "from src.mova.cli.cli import main; main()" run example.json \
+  --llm-temperature 0.7 \
+  --llm-max-tokens 1000 \
+  --llm-timeout 30
+```
+
+### Реальні HTTP API виклики
+
+MOVA SDK 2.2 підтримує реальні HTTP API виклики з механізмами повтору:
+
+```python
+from src.mova.core.models import ToolAPI
+
+# Визначити API інструмент
+weather_api = ToolAPI(
+    id="weather_service",
+    name="Weather API",
+    endpoint="https://api.weatherapi.com/v1/current.json",
+    method="GET",
+    parameters={
+        "key": "{session.data.api_key}",
+        "q": "{session.data.city}",
+        "aqi": "no"
+    },
+    authentication={
+        "type": "api_key",
+        "credentials": {
+            "key": "{session.data.api_key}"
+        }
+    }
+)
+
+# Додати до двигуна
+engine.add_tool(weather_api)
+```
+
+**Можливості:**
+- 🔄 **Механізм повтору**: Автоматичний повтор при невдачах (3 спроби)
+- 🔐 **Автентифікація**: Підтримка API ключів та Basic auth
+- 📝 **Заміна плейсхолдерів**: Динамічна підстановка параметрів
+- ⏱️ **Обробка таймаутів**: Налаштовувані таймаути запитів
+- 🛡️ **Обробка помилок**: Комплексне управління помилками
 
 ### CLI команди
 
