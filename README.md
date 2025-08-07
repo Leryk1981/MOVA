@@ -17,6 +17,7 @@ MOVA (Machine-Operable Verbal Actions) is a declarative language designed for in
 - **LLM Integration**: Support for OpenAI/OpenRouter API with configurable parameters
 - **Advanced Validation**: Comprehensive validation with detailed reports and recommendations
 - **CLI Extensions**: Component testing and step-by-step execution
+- **Webhook Support**: Real-time event notifications for external integrations
 - **Bilingual Documentation**: Full documentation in English and Ukrainian
 
 ### Quick Start
@@ -130,17 +131,22 @@ engine.update_session_data(session.session_id, {
 MOVA/
 ├── docs/                 # Documentation
 │   ├── REDIS_INTEGRATION.md  # Redis integration guide
+│   ├── WEBHOOK_SUPPORT.md    # Webhook support guide
 │   └── DEVELOPMENT_PROCESS.md # Development documentation
 ├── src/mova/            # Source code
 │   ├── core/           # Core language components
 │   ├── parser/         # JSON/YAML parsers
 │   ├── validator/      # Schema validation
 │   ├── redis_manager.py # Redis integration
+│   ├── webhook.py      # Webhook support
+│   ├── webhook_integration.py # Webhook integration
 │   └── cli/           # Command line interface
 ├── tests/              # Test suite
-│   └── test_redis_integration.py # Redis tests
+│   ├── test_redis_integration.py # Redis tests
+│   └── test_webhook.py # Webhook tests
 ├── examples/           # Usage examples
-│   └── redis_example.py # Redis usage example
+│   ├── redis_example.py # Redis usage example
+│   └── webhook_example.py # Webhook usage example
 └── schemas/           # JSON schemas
 ```
 
@@ -175,6 +181,9 @@ python -c "from src.mova.cli.cli import main; main()" validate example.json
 
 # Run with Redis
 python -c "from src.mova.cli.cli import main; main()" run example.json --redis-url redis://localhost:6379
+
+# Run with webhooks
+python -c "from src.mova.cli.cli import main; main()" run example.json --webhook-enabled
 
 # Initialize new project
 python -c "from src.mova.cli.cli import main; main()" init

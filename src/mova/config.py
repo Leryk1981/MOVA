@@ -45,6 +45,12 @@ class MovaConfig(BaseModel):
     default_language: str = Field(default="en", description="Default language")
     supported_languages: list = Field(default=["en", "uk"], description="Supported languages")
     
+    # Webhook settings
+    webhook_enabled: bool = Field(default=True, description="Enable webhook support")
+    webhook_timeout: int = Field(default=30, description="Webhook request timeout in seconds")
+    webhook_max_retries: int = Field(default=3, description="Webhook max retries")
+    webhook_secret: Optional[str] = Field(default=None, description="Default webhook secret")
+    
     model_config = {
         "env_prefix": "MOVA_",
         "case_sensitive": False

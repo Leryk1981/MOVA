@@ -40,4 +40,7 @@ redis>=4.0.0
 
 # Для LLM інтеграції
 openai>=1.0.0
-openrouter>=0.1.0 
+openrouter>=0.1.0
+
+# Для webhook підтримки
+aiohttp>=3.8.0 
