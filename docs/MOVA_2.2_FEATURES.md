@@ -10,7 +10,64 @@ MOVA 2.2 introduces significant enhancements to the language and ecosystem, focu
 
 ### Key New Features
 
-#### 1. Advanced Validation System
+#### 1. Async Support (asyncio)
+
+MOVA 2.2 introduces comprehensive async support for high-performance applications:
+
+**Async Components**
+- **AsyncMovaEngine**: Asynchronous version of the main processing engine
+- **AsyncMovaLLMClient**: Async LLM client with connection pooling
+- **AsyncMovaHTTPClient**: Async HTTP client with aiohttp support
+- **Async CLI**: Command-line interface with async operations
+
+**Async Features**
+- Concurrent protocol execution
+- Async API calls with connection pooling
+- Non-blocking LLM interactions
+- Async session management
+- Performance optimization for high-load scenarios
+
+**Usage Example:**
+```python
+import asyncio
+from mova.core.async_engine import create_async_mova_engine
+from mova.async_llm_client import get_async_llm_client
+
+async def main():
+    # Create async engine
+    engine = await create_async_mova_engine(
+        redis_url="redis://localhost:6379",
+        llm_api_key="your-api-key"
+    )
+    
+    # Execute protocols concurrently
+    tasks = []
+    for i in range(10):
+        task = engine.execute_protocol("weather_protocol", f"session_{i}")
+        tasks.append(task)
+    
+    results = await asyncio.gather(*tasks)
+    
+    # Cleanup
+    await engine.cleanup()
+
+# Run async example
+asyncio.run(main())
+```
+
+**Async CLI Usage:**
+```bash
+# Async validation
+mova-async validate example.json --advanced
+
+# Async execution
+mova-async run example.json --step-by-step
+
+# Async testing
+mova-async test example.json --verbose
+```
+
+#### 2. Advanced Validation System
 
 The new advanced validation system provides comprehensive checking of MOVA files:
 
@@ -212,7 +269,64 @@ MOVA 2.2 вводить значні покращення мови та екос
 
 ### Ключові нові функції
 
-#### 1. Розширена система валідації
+#### 1. Асинхронна підтримка (asyncio)
+
+MOVA 2.2 вводить комплексну асинхронну підтримку для високопродуктивних додатків:
+
+**Асинхронні компоненти**
+- **AsyncMovaEngine**: Асинхронна версія основного обробного движка
+- **AsyncMovaLLMClient**: Асинхронний LLM клієнт з пулом з'єднань
+- **AsyncMovaHTTPClient**: Асинхронний HTTP клієнт з підтримкою aiohttp
+- **Async CLI**: Інтерфейс командного рядка з асинхронними операціями
+
+**Асинхронні можливості**
+- Паралельне виконання протоколів
+- Асинхронні виклики API з пулом з'єднань
+- Неблокуючі взаємодії з LLM
+- Асинхронне управління сесіями
+- Оптимізація продуктивності для високонавантажених сценаріїв
+
+**Приклад використання:**
+```python
+import asyncio
+from mova.core.async_engine import create_async_mova_engine
+from mova.async_llm_client import get_async_llm_client
+
+async def main():
+    # Створити асинхронний движок
+    engine = await create_async_mova_engine(
+        redis_url="redis://localhost:6379",
+        llm_api_key="your-api-key"
+    )
+    
+    # Виконати протоколи паралельно
+    tasks = []
+    for i in range(10):
+        task = engine.execute_protocol("weather_protocol", f"session_{i}")
+        tasks.append(task)
+    
+    results = await asyncio.gather(*tasks)
+    
+    # Очищення
+    await engine.cleanup()
+
+# Запустити асинхронний приклад
+asyncio.run(main())
+```
+
+**Використання асинхронного CLI:**
+```bash
+# Асинхронна валідація
+mova-async validate example.json --advanced
+
+# Асинхронне виконання
+mova-async run example.json --step-by-step
+
+# Асинхронне тестування
+mova-async test example.json --verbose
+```
+
+#### 2. Розширена система валідації
 
 Нова розширена система валідації забезпечує комплексну перевірку MOVA файлів:
 
