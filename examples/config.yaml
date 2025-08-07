@@ -45,7 +45,6 @@ language:
   supported:
     - "en"
     - "uk"
-    - "ru"
 
 # Database settings (for future use)
 database:

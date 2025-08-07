@@ -13,21 +13,21 @@
       "model_type": "bert",
       "training_data": [
         {
-          "text": "Зарегистрируй меня как пользователя",
+          "text": "Зареєструй мене як користувача",
           "intent": "user_registration",
           "entities": null,
           "sentiment": null,
           "context": null
         },
         {
-          "text": "Создай новый аккаунт",
+          "text": "Створи новий акаунт",
           "intent": "user_registration",
           "entities": null,
           "sentiment": null,
           "context": null
         },
         {
-          "text": "Войди в систему",
+          "text": "Увійди в систему",
           "intent": "user_login",
           "entities": null,
           "sentiment": null,
@@ -41,7 +41,7 @@
           "context": null
         },
         {
-          "text": "Проверь данные",
+          "text": "Перевір дані",
           "intent": "data_validation",
           "entities": null,
           "sentiment": null,

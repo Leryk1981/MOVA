@@ -2,14 +2,14 @@
   "model_type": "bert",
   "training_data": [
     {
-      "text": "Зарегистрируй меня",
+      "text": "Зареєструй мене",
       "intent": "user_registration",
       "entities": null,
       "sentiment": null,
       "context": null
     },
     {
-      "text": "Войди в систему",
+      "text": "Увійди в систему",
       "intent": "user_login",
       "entities": null,
       "sentiment": null,
