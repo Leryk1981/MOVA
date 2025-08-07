@@ -10,9 +10,14 @@ __all__ = [
     "MovaEngine",
     "Intent",
     "Protocol", 
+    "ProtocolStep",
     "ToolAPI",
     "Instruction",
     "Profile",
     "Session",
-    "Contract"
+    "Contract",
+    "Condition",
+    "ActionType",
+    "IntentType",
+    "ComparisonOperator"
 ] 

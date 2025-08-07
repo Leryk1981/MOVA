@@ -1,0 +1,60 @@
+# MOVA SDK Configuration Example
+# Приклад конфігурації MOVA SDK
+
+# Logging settings
+logging:
+  level: INFO
+  file: logs/mova.log
+  format: "{time} | {level} | {message}"
+
+# API settings
+api:
+  timeout: 30
+  retries: 3
+  rate_limit: 100
+  base_url: "https://api.mova.com"
+
+# Cache settings
+cache:
+  enabled: true
+  ttl: 3600
+  directory: ".mova_cache"
+  max_size: "100MB"
+
+# Security settings
+security:
+  encryption_enabled: false
+  encryption_key: null
+  ssl_verify: true
+
+# Performance settings
+performance:
+  max_concurrent_requests: 10
+  request_timeout: 30
+  connection_pool_size: 20
+
+# Development settings
+development:
+  debug_mode: false
+  verbose_output: false
+  log_requests: true
+
+# Language settings
+language:
+  default: "en"
+  supported:
+    - "en"
+    - "uk"
+    - "ru"
+
+# Database settings (for future use)
+database:
+  type: "sqlite"
+  url: "sqlite:///mova.db"
+  pool_size: 5
+
+# Monitoring settings
+monitoring:
+  enabled: true
+  metrics_port: 9090
+  health_check_interval: 30 
