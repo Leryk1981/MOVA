@@ -13,6 +13,7 @@ MOVA (Machine-Operable Verbal Actions) is a declarative language designed for in
 - **Multi-step Scenarios**: Support for complex workflows and branching logic
 - **API Integration**: Built-in support for external API calls
 - **Context Management**: Advanced session and profile management
+- **Redis Integration**: Scalable session storage with TTL support
 - **Bilingual Documentation**: Full documentation in English and Ukrainian
 
 ### Quick Start
@@ -35,21 +36,71 @@ pytest
 
 # Start development
 python -m mova.cli
+
+# Run with Redis (optional)
+python -c "from src.mova.cli.cli import main; main()" run examples/basic_example.json --redis-url redis://localhost:6379
 ```
+
+### Redis Integration
+
+MOVA SDK 2.2 includes Redis integration for scalable session management:
+
+```python
+from src.mova.core.engine import MovaEngine
+
+# Initialize with Redis
+engine = MovaEngine(redis_url="redis://localhost:6379")
+
+# Create session with TTL
+session = engine.create_session("user123", ttl=3600)
+
+# Session data is automatically stored in Redis
+engine.update_session_data(session.session_id, {
+    "user_name": "John",
+    "preferences": {"language": "en"}
+})
+```
+
+**Features:**
+- 🚀 **Scalable**: Store sessions in Redis instead of memory
+- ⏰ **TTL Support**: Automatic cleanup of expired sessions
+- 🔄 **Fallback**: Automatic fallback to memory if Redis unavailable
+- 📊 **Monitoring**: Built-in session monitoring and management
 
 ### Project Structure
 
 ```
 MOVA/
 ├── docs/                 # Documentation
+│   ├── REDIS_INTEGRATION.md  # Redis integration guide
+│   └── DEVELOPMENT_PROCESS.md # Development documentation
 ├── src/mova/            # Source code
 │   ├── core/           # Core language components
 │   ├── parser/         # JSON/YAML parsers
 │   ├── validator/      # Schema validation
+│   ├── redis_manager.py # Redis integration
 │   └── cli/           # Command line interface
 ├── tests/              # Test suite
+│   └── test_redis_integration.py # Redis tests
 ├── examples/           # Usage examples
+│   └── redis_example.py # Redis usage example
 └── schemas/           # JSON schemas
+```
+
+### CLI Commands
+
+```bash
+# Parse MOVA file
+python -c "from src.mova.cli.cli import main; main()" parse example.json
+
+# Validate schema
+python -c "from src.mova.cli.cli import main; main()" validate example.json
+
+# Run with Redis
+python -c "from src.mova.cli.cli import main; main()" run example.json --redis-url redis://localhost:6379
+
+# Initialize new project
+python -c "from src.mova.cli.cli import main; main()" init
 ```
 
 ## Ukrainian
@@ -63,6 +114,7 @@ MOVA (Machine-Operable Verbal Actions) - це декларативна мова,
 - **Багатоетапні сценарії**: Підтримка складних робочих процесів та логіки розгалуження
 - **Інтеграція API**: Вбудована підтримка викликів зовнішніх API
 - **Управління контекстом**: Розширене управління сесіями та профілями
+- **Redis інтеграція**: Масштабоване зберігання сесій з підтримкою TTL
 - **Двомовна документація**: Повна документація українською та англійською мовами
 
 ### Швидкий старт
@@ -85,22 +137,107 @@ pytest
 
 # Почати розробку
 python -m mova.cli
+
+# Запустити з Redis (опціонально)
+python -c "from src.mova.cli.cli import main; main()" run examples/basic_example.json --redis-url redis://localhost:6379
 ```
+
+### Redis інтеграція
+
+MOVA SDK 2.2 включає Redis інтеграцію для масштабованого управління сесіями:
+
+```python
+from src.mova.core.engine import MovaEngine
+
+# Ініціалізація з Redis
+engine = MovaEngine(redis_url="redis://localhost:6379")
+
+# Створення сесії з TTL
+session = engine.create_session("user123", ttl=3600)
+
+# Дані сесії автоматично зберігаються в Redis
+engine.update_session_data(session.session_id, {
+    "user_name": "Іван",
+    "preferences": {"language": "uk"}
+})
+```
+
+**Можливості:**
+- 🚀 **Масштабованість**: Зберігання сесій в Redis замість пам'яті
+- ⏰ **TTL підтримка**: Автоматичне очищення застарілих сесій
+- 🔄 **Fallback**: Автоматичний перехід до пам'яті при недоступності Redis
+- 📊 **Моніторинг**: Вбудований моніторинг та управління сесіями
 
 ### Структура проекту
 
 ```
 MOVA/
 ├── docs/                 # Документація
+│   ├── REDIS_INTEGRATION.md  # Гід по Redis інтеграції
+│   └── DEVELOPMENT_PROCESS.md # Документація розробки
 ├── src/mova/            # Вихідний код
 │   ├── core/           # Основні компоненти мови
 │   ├── parser/         # JSON/YAML парсери
 │   ├── validator/      # Валідація схем
+│   ├── redis_manager.py # Redis інтеграція
 │   └── cli/           # Інтерфейс командного рядка
 ├── tests/              # Набір тестів
+│   └── test_redis_integration.py # Тести Redis
 ├── examples/           # Приклади використання
+│   └── redis_example.py # Приклад використання Redis
 └── schemas/           # JSON схеми
 ```
+
+### CLI команди
+
+```bash
+# Парсити MOVA файл
+python -c "from src.mova.cli.cli import main; main()" parse example.json
+
+# Валідувати схему
+python -c "from src.mova.cli.cli import main; main()" validate example.json
+
+# Запустити з Redis
+python -c "from src.mova.cli.cli import main; main()" run example.json --redis-url redis://localhost:6379
+
+# Ініціалізувати новий проект
+python -c "from src.mova.cli.cli import main; main()" init
+```
+
+### Тестування
+
+```bash
+# Всі тести
+pytest
+
+# Тести Redis інтеграції
+pytest tests/test_redis_integration.py -v
+
+# Тести з покриттям
+pytest --cov=src/mova
+```
+
+### Приклади використання
+
+```python
+# Базовий приклад
+from src.mova.core.engine import MovaEngine
+
+engine = MovaEngine()
+session = engine.create_session("user123")
+
+# Приклад з Redis
+from src.mova.core.engine import MovaEngine
+
+engine = MovaEngine(redis_url="redis://localhost:6379")
+session = engine.create_session("user123", ttl=1800)
+```
+
+### Документація
+
+- [Redis Integration Guide](docs/REDIS_INTEGRATION.md) - Детальний гід по Redis інтеграції
+- [Development Process](docs/DEVELOPMENT_PROCESS.md) - Процес розробки
+- [Examples](examples/) - Приклади використання
 
 ## License / Ліцензія
 
