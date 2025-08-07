@@ -22,7 +22,8 @@ console = Console()
 
 @click.group()
 @click.version_option(version="2.2.0", prog_name="MOVA")
-def main():
+@click.option('--redis-url', default=None, help='Redis connection URL / URL підключення до Redis')
+def main(redis_url):
     """
     MOVA - Machine-Operable Verbal Actions
     
@@ -107,7 +108,7 @@ def validate(file_path):
 @main.command()
 @click.argument('file_path', type=click.Path(exists=True))
 @click.option('--session-id', help='Session ID / ID сесії')
-def run(file_path, session_id):
+def run(file_path, session_id, redis_url):
     """Run MOVA file / Запустити MOVA файл"""
     try:
         file_path = Path(file_path)
@@ -121,8 +122,13 @@ def run(file_path, session_id):
         # Parse file
         data = parser.parse_file(str(file_path))
         
-        # Initialize engine
-        engine = MovaEngine()
+        # Initialize engine with Redis if provided
+        engine = MovaEngine(redis_url=redis_url)
+        
+        if redis_url:
+            console.print(f"🔗 Using Redis: {redis_url}")
+        else:
+            console.print("💾 Using in-memory storage")
         
         # Load data into engine
         load_data_to_engine(engine, data)

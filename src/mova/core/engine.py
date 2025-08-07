@@ -13,6 +13,7 @@ from .models import (
     Intent, Protocol, ToolAPI, Instruction, Profile, 
     Session, Contract, ProtocolStep, Condition
 )
+from ..redis_manager import get_redis_manager, MovaRedisManager
 
 
 class MovaEngine:
@@ -21,8 +22,13 @@ class MovaEngine:
     Основний обробний движок мови MOVA
     """
     
-    def __init__(self):
-        """Initialize MOVA engine / Ініціалізація движка MOVA"""
+    def __init__(self, redis_url: Optional[str] = None):
+        """
+        Initialize MOVA engine / Ініціалізація движка MOVA
+        
+        Args:
+            redis_url: Redis connection URL (optional) / URL підключення до Redis (опціонально)
+        """
         self.intents: Dict[str, Intent] = {}
         self.protocols: Dict[str, Protocol] = {}
         self.tools: Dict[str, ToolAPI] = {}
@@ -31,7 +37,16 @@ class MovaEngine:
         self.sessions: Dict[str, Session] = {}
         self.contracts: Dict[str, Contract] = {}
         
-        logger.info("MOVA Engine initialized / MOVA Engine ініціалізовано")
+        # Initialize Redis manager if URL provided
+        self.redis_manager: Optional[MovaRedisManager] = None
+        if redis_url:
+            try:
+                self.redis_manager = get_redis_manager(redis_url)
+                logger.info(f"MOVA Engine initialized with Redis at {redis_url}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Redis: {e}. Using in-memory storage.")
+        else:
+            logger.info("MOVA Engine initialized with in-memory storage")
     
     def add_intent(self, intent: Intent) -> bool:
         """
@@ -87,12 +102,13 @@ class MovaEngine:
             logger.error(f"Failed to add tool: {e} / Не вдалося додати інструмент: {e}")
             return False
     
-    def create_session(self, user_id: str) -> Session:
+    def create_session(self, user_id: str, ttl: int = 3600) -> Session:
         """
         Create new session / Створити нову сесію
         
         Args:
             user_id: User identifier / Ідентифікатор користувача
+            ttl: Time to live in seconds / Час життя в секундах
             
         Returns:
             Session: Created session / Створена сесія
@@ -103,7 +119,19 @@ class MovaEngine:
             user_id=user_id,
             start_time=datetime.now().isoformat()
         )
+        
+        # Store session in memory
         self.sessions[session_id] = session
+        
+        # Store session data in Redis if available
+        if self.redis_manager:
+            initial_data = {
+                "user_id": user_id,
+                "start_time": session.start_time,
+                "active": True
+            }
+            self.redis_manager.create_session(session_id, initial_data, ttl)
+        
         logger.info(f"Session '{session_id}' created for user '{user_id}' / Сесію '{session_id}' створено для користувача '{user_id}'")
         return session
     
@@ -263,13 +291,44 @@ class MovaEngine:
         return False
     
     def get_session_data(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Get session data / Отримати дані сесії"""
+        """
+        Get session data / Отримати дані сесії
+        
+        Args:
+            session_id: Session identifier / Ідентифікатор сесії
+            
+        Returns:
+            Optional[Dict[str, Any]]: Session data or None / Дані сесії або None
+        """
+        # Try Redis first if available
+        if self.redis_manager:
+            redis_data = self.redis_manager.get_session_data(session_id)
+            if redis_data:
+                return redis_data
+        
+        # Fallback to memory
         if session_id in self.sessions:
             return self.sessions[session_id].data
         return None
-    
+
     def update_session_data(self, session_id: str, data: Dict[str, Any]) -> bool:
-        """Update session data / Оновити дані сесії"""
+        """
+        Update session data / Оновити дані сесії
+        
+        Args:
+            session_id: Session identifier / Ідентифікатор сесії
+            data: Data to update / Дані для оновлення
+            
+        Returns:
+            bool: Success status / Статус успіху
+        """
+        # Update Redis if available
+        if self.redis_manager:
+            success = self.redis_manager.update_session_data_batch(session_id, data)
+            if not success:
+                logger.warning(f"Failed to update session {session_id} in Redis")
+        
+        # Update memory
         if session_id in self.sessions:
             self.sessions[session_id].data.update(data)
             return True
