@@ -32,6 +32,12 @@ class WebhookEventType(str, Enum):
     LLM_REQUEST_FAILED = "llm.request.failed"
     CONFIG_UPDATED = "config.updated"
     ERROR_OCCURRED = "error.occurred"
+    # ML Events
+    ML_INTENT_RECOGNIZED = "ml.intent.recognized"
+    ML_ENTITY_EXTRACTED = "ml.entity.extracted"
+    ML_CONTEXT_UPDATED = "ml.context.updated"
+    ML_MODEL_TRAINED = "ml.model.trained"
+    ML_PREDICTION_MADE = "ml.prediction.made"
 
 
 class WebhookPayload(BaseModel):

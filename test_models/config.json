@@ -1,0 +1,25 @@
+{
+  "model_type": "bert",
+  "training_data": [
+    {
+      "text": "Зарегистрируй меня",
+      "intent": "user_registration",
+      "entities": null,
+      "sentiment": null,
+      "context": null
+    },
+    {
+      "text": "Войди в систему",
+      "intent": "user_login",
+      "entities": null,
+      "sentiment": null,
+      "context": null
+    }
+  ],
+  "validation_data": null,
+  "epochs": 2,
+  "learning_rate": 2e-05,
+  "batch_size": 16,
+  "max_length": 512,
+  "save_path": "test_models/"
+}

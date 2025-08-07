@@ -174,6 +174,34 @@ class WebhookIntegration:
         }
         
         trigger_webhook_event(WebhookEventType.ERROR_OCCURRED, data)
+    
+    def trigger_ml_event(
+        self, 
+        event_type: str, 
+        data: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Trigger ML webhook event
+        Запустити webhook подію ML
+        
+        Args:
+            event_type: Event type (intent_recognized/entity_extracted/context_updated/model_trained/prediction_made)
+            data: Event data / Дані події
+        """
+        if not self._enabled:
+            return
+        
+        event_map = {
+            "intent_recognized": WebhookEventType.ML_INTENT_RECOGNIZED,
+            "entity_extracted": WebhookEventType.ML_ENTITY_EXTRACTED, 
+            "context_updated": WebhookEventType.ML_CONTEXT_UPDATED,
+            "model_trained": WebhookEventType.ML_MODEL_TRAINED,
+            "prediction_made": WebhookEventType.ML_PREDICTION_MADE
+        }
+        
+        webhook_event = event_map.get(event_type)
+        if webhook_event:
+            trigger_webhook_event(webhook_event, data)
 
 
 # Global webhook integration instance
@@ -243,4 +271,30 @@ def trigger_config_updated(data: Optional[Dict[str, Any]] = None) -> None:
 
 def trigger_error_occurred(error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
     """Trigger error occurred event / Запустити подію виникнення помилки"""
-    webhook_integration.trigger_error_event(error, context) 
+    webhook_integration.trigger_error_event(error, context)
+
+
+# ML Webhook convenience functions
+def trigger_ml_intent_recognized(data: Optional[Dict[str, Any]] = None) -> None:
+    """Convenience function to trigger ML intent recognized event"""
+    webhook_integration.trigger_ml_event("intent_recognized", data)
+
+
+def trigger_ml_entity_extracted(data: Optional[Dict[str, Any]] = None) -> None:
+    """Convenience function to trigger ML entity extracted event"""
+    webhook_integration.trigger_ml_event("entity_extracted", data)
+
+
+def trigger_ml_context_updated(data: Optional[Dict[str, Any]] = None) -> None:
+    """Convenience function to trigger ML context updated event"""
+    webhook_integration.trigger_ml_event("context_updated", data)
+
+
+def trigger_ml_model_trained(data: Optional[Dict[str, Any]] = None) -> None:
+    """Convenience function to trigger ML model trained event"""
+    webhook_integration.trigger_ml_event("model_trained", data)
+
+
+def trigger_ml_prediction_made(data: Optional[Dict[str, Any]] = None) -> None:
+    """Convenience function to trigger ML prediction made event"""
+    webhook_integration.trigger_ml_event("prediction_made", data) 

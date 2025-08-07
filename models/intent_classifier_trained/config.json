@@ -1,0 +1,46 @@
+{
+  "model_type": "bert",
+  "training_data": [
+    {
+      "text": "Зарегистрируй меня как пользователя",
+      "intent": "user_registration",
+      "entities": null,
+      "sentiment": null,
+      "context": null
+    },
+    {
+      "text": "Создай новый аккаунт",
+      "intent": "user_registration",
+      "entities": null,
+      "sentiment": null,
+      "context": null
+    },
+    {
+      "text": "Войди в систему",
+      "intent": "user_login",
+      "entities": null,
+      "sentiment": null,
+      "context": null
+    },
+    {
+      "text": "Авторизуйся",
+      "intent": "user_login",
+      "entities": null,
+      "sentiment": null,
+      "context": null
+    },
+    {
+      "text": "Проверь данные",
+      "intent": "data_validation",
+      "entities": null,
+      "sentiment": null,
+      "context": null
+    }
+  ],
+  "validation_data": null,
+  "epochs": 5,
+  "learning_rate": 2e-05,
+  "batch_size": 16,
+  "max_length": 512,
+  "save_path": "models/intent_classifier_trained/"
+}

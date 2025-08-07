@@ -18,6 +18,7 @@ MOVA (Machine-Operable Verbal Actions) is a declarative language designed for in
 - **Advanced Validation**: Comprehensive validation with detailed reports and recommendations
 - **CLI Extensions**: Component testing and step-by-step execution
 - **Webhook Support**: Real-time event notifications for external integrations
+- **ML Integration**: Intent recognition, entity extraction, context analysis, and sentiment analysis
 - **Bilingual Documentation**: Full documentation in English and Ukrainian
 
 ### Quick Start
@@ -97,6 +98,45 @@ print(result["response"])
 python -c "from src.mova.cli.cli import main; main()" run examples/config.json \
   --llm-api-key "your-api-key" \
   --llm-model "openai/gpt-4"
+```
+
+### 🧠 ML Integration
+
+MOVA SDK 2.2 includes comprehensive ML capabilities for natural language understanding:
+
+```python
+from mova.ml.integration import MLIntegration
+
+# Initialize ML integration
+ml_integration = MLIntegration()
+
+# Analyze text with intent recognition, entity extraction, and sentiment analysis
+text = "Зарегистрируй меня как пользователя john@example.com"
+prediction = await ml_integration.analyze_text(text, "session_123")
+
+if prediction:
+    print(f"Intent: {prediction.intent.intent.value}")
+    print(f"Confidence: {prediction.intent.confidence:.2f}")
+    print(f"Entities: {len(prediction.entities.entities)}")
+    print(f"Sentiment: {prediction.sentiment.sentiment.value}")
+    print(f"Processing time: {prediction.processing_time:.3f}s")
+```
+
+**ML Features:**
+- **Intent Recognition**: BERT/RoBERTa models for intent classification
+- **Entity Extraction**: NER with custom entity support
+- **Context Analysis**: Conversation history and user profile learning
+- **Sentiment Analysis**: Emotion detection and confidence scoring
+- **Model Training**: Custom model training with metrics tracking
+- **Webhook Events**: Real-time ML event notifications
+
+**CLI Usage with ML:**
+```bash
+# Run ML analysis
+python examples/ml_example.py
+
+# Train custom model
+python -c "from mova.ml.integration import MLIntegration; import asyncio; asyncio.run(MLIntegration().train_model(...))"
 ```
 
 ### Redis Integration

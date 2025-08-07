@@ -51,6 +51,17 @@ class MovaConfig(BaseModel):
     webhook_max_retries: int = Field(default=3, description="Webhook max retries")
     webhook_secret: Optional[str] = Field(default=None, description="Default webhook secret")
     
+    # ML Integration settings
+    ml_enabled: bool = Field(default=True, description="Enable ML integration")
+    ml_models_dir: str = Field(default="models", description="ML models directory")
+    ml_confidence_threshold: float = Field(default=0.8, description="ML confidence threshold")
+    ml_batch_size: int = Field(default=32, description="ML batch size")
+    ml_max_concurrent_requests: int = Field(default=10, description="ML max concurrent requests")
+    ml_cache_predictions: bool = Field(default=True, description="Cache ML predictions")
+    ml_auto_retrain: bool = Field(default=False, description="Auto retrain ML models")
+    ml_retrain_interval: str = Field(default="7d", description="ML retrain interval")
+    ml_min_samples: int = Field(default=1000, description="ML minimum samples for retraining")
+    
     model_config = {
         "env_prefix": "MOVA_",
         "case_sensitive": False
