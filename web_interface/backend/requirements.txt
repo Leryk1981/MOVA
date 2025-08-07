@@ -1,0 +1,35 @@
+# MOVA Web Interface Backend Requirements
+# Залежності для веб-інтерфейсу MOVA
+
+# FastAPI та ASGI
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+websockets==12.0
+
+# Валідація та серіалізація
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# HTTP клієнт
+httpx==0.25.2
+aiofiles==23.2.1
+
+# Безпека
+python-multipart==0.0.6
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Логування
+loguru==0.7.2
+
+# Тестування
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# Розробка
+python-dotenv==1.0.0
+watchdog==3.0.0
+
+# MOVA SDK (локальний шлях)
+# -e ../src/ 
