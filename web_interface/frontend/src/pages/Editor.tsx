@@ -4,7 +4,7 @@ import { Editor as MonacoEditor } from '@monaco-editor/react';
 import { 
   FolderIcon, 
   DocumentTextIcon, 
-  SaveIcon, 
+  ArrowDownTrayIcon, 
   PlusIcon,
   TrashIcon,
   EyeIcon,
@@ -78,9 +78,9 @@ const Editor: React.FC = () => {
 
   // Структура файлового дерева
   const fileTree = useMemo(() => {
-    if (!filesResponse?.data?.files) return [];
+    if (!filesResponse?.files) return [];
     
-    const files = filesResponse.data.files;
+    const files = filesResponse.files;
     const tree: FileNode[] = [];
     
     files.forEach((file: FileInfo) => {
@@ -174,7 +174,7 @@ const Editor: React.FC = () => {
   const monacoOptions = {
     minimap: { enabled: false },
     fontSize: 14,
-    lineNumbers: 'on',
+    lineNumbers: 'on' as const,
     roundedSelection: false,
     scrollBeyondLastLine: false,
     automaticLayout: true,
@@ -220,7 +220,7 @@ const Editor: React.FC = () => {
               className="btn btn-outline btn-sm"
               disabled={saveFileMutation.isPending}
             >
-              <SaveIcon className="h-4 w-4 mr-1" />
+              <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
               {saveFileMutation.isPending ? 'Збереження...' : 'Зберегти'}
             </button>
           )}

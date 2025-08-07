@@ -3,13 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   FolderIcon, 
   DocumentTextIcon, 
-  UploadIcon, 
-  DownloadIcon,
+  ArrowUpTrayIcon, 
+  ArrowDownTrayIcon,
   TrashIcon,
   EyeIcon,
   PencilIcon,
-  FolderPlusIcon,
-  DocumentPlusIcon
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import { apiService } from '@/services/api';
 import { FileInfo } from '@/types/api';
@@ -73,10 +72,10 @@ const Files: React.FC = () => {
     },
   });
 
-  const files = filesResponse?.data?.files || [];
+  const files = filesResponse?.files || [];
 
   // Фільтрація файлів за пошуковим запитом
-  const filteredFiles = files.filter((file: FileInfo) =>
+  const filteredFiles = files.filter((file) =>
     file.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -168,14 +167,14 @@ const Files: React.FC = () => {
             onClick={() => setShowNewFolderModal(true)}
             className="btn btn-outline"
           >
-            <FolderPlusIcon className="h-4 w-4 mr-2" />
+            <PlusIcon className="h-4 w-4 mr-2" />
             Нова папка
           </button>
           <button
             onClick={() => setShowUploadModal(true)}
             className="btn btn-primary"
           >
-            <UploadIcon className="h-4 w-4 mr-2" />
+            <ArrowUpTrayIcon className="h-4 w-4 mr-2" />
             Завантажити файл
           </button>
         </div>
@@ -338,7 +337,7 @@ const Files: React.FC = () => {
                         }}
                         className="w-full btn btn-outline btn-sm"
                       >
-                        <DownloadIcon className="h-4 w-4 mr-2" />
+                        <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
                         Завантажити
                       </button>
                     </div>
@@ -388,7 +387,7 @@ const Files: React.FC = () => {
                   onClick={() => fileInputRef.current?.click()}
                   className="btn btn-outline"
                 >
-                  <UploadIcon className="h-4 w-4 mr-2" />
+                  <ArrowUpTrayIcon className="h-4 w-4 mr-2" />
                   Виберіть файл
                 </button>
                 <p className="text-sm text-gray-500 mt-2">

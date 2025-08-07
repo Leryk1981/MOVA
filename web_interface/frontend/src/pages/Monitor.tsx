@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { 
   CpuChipIcon, 
   ServerIcon, 
-  DatabaseIcon,
+  CircleStackIcon,
   GlobeAltIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
@@ -178,7 +178,7 @@ const Monitor: React.FC = () => {
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                <DatabaseIcon className="h-4 w-4 text-purple-600" />
+                <CircleStackIcon className="h-4 w-4 text-purple-600" />
               </div>
             </div>
             <div className="ml-4">
