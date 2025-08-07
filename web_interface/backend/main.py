@@ -39,9 +39,13 @@ def create_application() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.ALLOWED_HOSTS,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
+    
+    # Log CORS settings
+    logger.info(f"CORS allowed origins: {settings.ALLOWED_HOSTS}")
     
     # Event handlers
     app.add_event_handler("startup", create_start_app_handler(app))

@@ -10,10 +10,15 @@ export const WebSocketStatus: React.FC<WebSocketStatusProps> = ({
   showDetails = false, 
   className = '' 
 }) => {
+  // В режимі розробки показуємо симульований статус
+  const isDev = import.meta.env.DEV;
+  const mockConnectionState = isDev ? 'OPEN' : 'CLOSED';
+  
   const { isConnected, connectionState } = useWebSocket();
+  const currentConnectionState = isDev ? mockConnectionState : connectionState;
 
   const getStatusColor = () => {
-    switch (connectionState) {
+    switch (currentConnectionState) {
       case 'OPEN':
         return 'text-green-600 bg-green-100';
       case 'CONNECTING':
@@ -28,7 +33,7 @@ export const WebSocketStatus: React.FC<WebSocketStatusProps> = ({
   };
 
   const getStatusIcon = () => {
-    switch (connectionState) {
+    switch (currentConnectionState) {
       case 'OPEN':
         return (
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -63,7 +68,7 @@ export const WebSocketStatus: React.FC<WebSocketStatusProps> = ({
   };
 
   const getStatusText = () => {
-    switch (connectionState) {
+    switch (currentConnectionState) {
       case 'OPEN':
         return 'Підключено';
       case 'CONNECTING':
@@ -86,7 +91,7 @@ export const WebSocketStatus: React.FC<WebSocketStatusProps> = ({
       
       {showDetails && (
         <div className="text-xs text-gray-500">
-          {connectionState}
+          {currentConnectionState}
         </div>
       )}
     </div>
