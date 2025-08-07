@@ -23,14 +23,21 @@ console = Console()
 @click.group()
 @click.version_option(version="2.2.0", prog_name="MOVA")
 @click.option('--redis-url', default=None, help='Redis connection URL / URL підключення до Redis')
-def main(redis_url):
+@click.option('--llm-api-key', default=None, help='OpenRouter API key / OpenRouter API ключ')
+@click.option('--llm-model', default='openai/gpt-3.5-turbo', help='LLM model to use / Модель LLM для використання')
+@click.pass_context
+def main(ctx, redis_url, llm_api_key, llm_model):
     """
     MOVA - Machine-Operable Verbal Actions
     
     A declarative language for LLM interactions
     Декларативна мова для взаємодії з LLM
     """
-    pass
+    # Store global options in context
+    ctx.ensure_object(dict)
+    ctx.obj['redis_url'] = redis_url
+    ctx.obj['llm_api_key'] = llm_api_key
+    ctx.obj['llm_model'] = llm_model
 
 
 @main.command()
@@ -108,8 +115,14 @@ def validate(file_path):
 @main.command()
 @click.argument('file_path', type=click.Path(exists=True))
 @click.option('--session-id', help='Session ID / ID сесії')
-def run(file_path, session_id, redis_url):
+@click.pass_context
+def run(ctx, file_path, session_id):
     """Run MOVA file / Запустити MOVA файл"""
+    # Get global options from context
+    redis_url = ctx.obj.get('redis_url')
+    llm_api_key = ctx.obj.get('llm_api_key')
+    llm_model = ctx.obj.get('llm_model')
+    
     try:
         file_path = Path(file_path)
         
@@ -122,13 +135,22 @@ def run(file_path, session_id, redis_url):
         # Parse file
         data = parser.parse_file(str(file_path))
         
-        # Initialize engine with Redis if provided
-        engine = MovaEngine(redis_url=redis_url)
+        # Initialize engine with Redis and LLM if provided
+        engine = MovaEngine(
+            redis_url=redis_url,
+            llm_api_key=llm_api_key,
+            llm_model=llm_model
+        )
         
         if redis_url:
             console.print(f"🔗 Using Redis: {redis_url}")
         else:
             console.print("💾 Using in-memory storage")
+            
+        if llm_api_key:
+            console.print(f"🤖 Using LLM model: {llm_model}")
+        else:
+            console.print("🤖 Using mock LLM responses")
         
         # Load data into engine
         load_data_to_engine(engine, data)
@@ -143,8 +165,13 @@ def run(file_path, session_id, redis_url):
         if data.get("protocols"):
             for protocol in data["protocols"]:
                 console.print(f"📋 Executing protocol: {protocol['name']}")
-                result = engine.execute_protocol(protocol['name'], session_id)
-                display_execution_result(result)
+                try:
+                    result = engine.execute_protocol(protocol['name'], session_id)
+                    display_execution_result(result)
+                except Exception as e:
+                    console.print(f"❌ Error executing protocol {protocol['name']}: {e}", style="red")
+        else:
+            console.print("ℹ️  No protocols found in file")
         
     except Exception as e:
         console.print(f"❌ Error: {e}", style="red")
@@ -229,8 +256,12 @@ def export_data(data: dict, output_path: str, parser):
 
 def load_data_to_engine(engine: MovaEngine, data: dict):
     """Load parsed data into engine / Завантажити розпарсені дані до движка"""
+    console.print(f"📊 Loading data: {list(data.keys())}")
+    
     # Load intents
-    for intent_data in data.get("intents", []):
+    intents = data.get("intents") or []
+    console.print(f"📋 Loading {len(intents)} intents")
+    for intent_data in intents:
         from ..core.models import Intent, IntentType
         intent = Intent(
             name=intent_data["name"],
@@ -242,13 +273,19 @@ def load_data_to_engine(engine: MovaEngine, data: dict):
         engine.add_intent(intent)
     
     # Load protocols
-    for protocol_data in data.get("protocols", []):
+    protocols = data.get("protocols") or []
+    console.print(f"📋 Loading {len(protocols)} protocols")
+    for protocol_data in protocols:
         from ..core.models import Protocol, ProtocolStep, ActionType, Condition, ComparisonOperator
         
+        console.print(f"  📋 Loading protocol: {protocol_data.get('name', 'Unknown')}")
         steps = []
-        for step_data in protocol_data.get("steps", []):
+        steps_data = protocol_data.get("steps") or []
+        console.print(f"    📋 Loading {len(steps_data)} steps")
+        for step_data in steps_data:
             conditions = []
-            for condition_data in step_data.get("conditions", []):
+            conditions_data = step_data.get("conditions") or []
+            for condition_data in conditions_data:
                 condition = Condition(
                     variable=condition_data["variable"],
                     operator=ComparisonOperator(condition_data["operator"]),
@@ -274,7 +311,9 @@ def load_data_to_engine(engine: MovaEngine, data: dict):
         engine.add_protocol(protocol)
     
     # Load tools
-    for tool_data in data.get("tools", []):
+    tools = data.get("tools") or []
+    console.print(f"📋 Loading {len(tools)} tools")
+    for tool_data in tools:
         from ..core.models import ToolAPI
         tool = ToolAPI(
             id=tool_data["id"],

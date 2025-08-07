@@ -41,6 +41,60 @@ python -m mova.cli
 python -c "from src.mova.cli.cli import main; main()" run examples/basic_example.json --redis-url redis://localhost:6379
 ```
 
+### 🤖 LLM Integration with OpenRouter
+
+MOVA SDK 2.2 includes LLM integration with OpenRouter for accessing various AI models:
+
+```python
+import os
+from src.mova.core.engine import MovaEngine
+
+# Set your OpenRouter API key
+os.environ["OPENROUTER_API_KEY"] = "your-api-key-here"
+
+# Initialize engine with LLM support
+engine = MovaEngine(
+    llm_api_key="your-api-key",  # or use environment variable
+    llm_model="openai/gpt-3.5-turbo"
+)
+
+# Create protocol with LLM prompt
+protocol = Protocol(
+    protocol_id="ai_assistant",
+    name="AI Assistant",
+    steps=[
+        ProtocolStep(
+            id="step1",
+            action=ActionType.PROMPT,
+            prompt="User asked: {session.data.user_input}. Provide a helpful response."
+        )
+    ]
+)
+
+engine.add_protocol(protocol)
+
+# Usage
+session = engine.create_session("user123")
+engine.update_session_data(session.session_id, {"user_input": "What is AI?"})
+result = engine.execute_protocol("ai_assistant", session.session_id)
+print(result["response"])
+```
+
+**Supported Models:**
+- `openai/gpt-3.5-turbo` - Fast and cost-effective
+- `openai/gpt-4` - More powerful
+- `anthropic/claude-3-haiku` - Fast Claude
+- `anthropic/claude-3-sonnet` - Balanced Claude
+- `anthropic/claude-3-opus` - Most powerful Claude
+
+**CLI Usage with LLM:**
+```bash
+# Run with LLM support
+python -c "from src.mova.cli.cli import main; main()" run examples/config.json \
+  --llm-api-key "your-api-key" \
+  --llm-model "openai/gpt-4"
+```
+
 ### Redis Integration
 
 MOVA SDK 2.2 includes Redis integration for scalable session management:

@@ -14,6 +14,7 @@ from .models import (
     Session, Contract, ProtocolStep, Condition
 )
 from ..redis_manager import get_redis_manager, MovaRedisManager
+from ..llm_client import get_llm_client, MovaLLMClient
 
 
 class MovaEngine:
@@ -22,12 +23,14 @@ class MovaEngine:
     Основний обробний движок мови MOVA
     """
     
-    def __init__(self, redis_url: Optional[str] = None):
+    def __init__(self, redis_url: Optional[str] = None, llm_api_key: Optional[str] = None, llm_model: str = "openai/gpt-3.5-turbo"):
         """
         Initialize MOVA engine / Ініціалізація движка MOVA
         
         Args:
             redis_url: Redis connection URL (optional) / URL підключення до Redis (опціонально)
+            llm_api_key: OpenRouter API key (optional) / OpenRouter API ключ (опціонально)
+            llm_model: Default LLM model / Модель LLM за замовчуванням
         """
         self.intents: Dict[str, Intent] = {}
         self.protocols: Dict[str, Protocol] = {}
@@ -47,6 +50,17 @@ class MovaEngine:
                 logger.warning(f"Failed to initialize Redis: {e}. Using in-memory storage.")
         else:
             logger.info("MOVA Engine initialized with in-memory storage")
+        
+        # Initialize LLM client if API key provided
+        self.llm_client: Optional[MovaLLMClient] = None
+        if llm_api_key:
+            try:
+                self.llm_client = get_llm_client(llm_api_key, llm_model)
+                logger.info(f"MOVA Engine initialized with LLM model: {llm_model}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize LLM client: {e}. Using mock responses.")
+        else:
+            logger.info("MOVA Engine initialized with mock LLM responses")
     
     def add_intent(self, intent: Intent) -> bool:
         """
@@ -235,12 +249,49 @@ class MovaEngine:
         if not step.prompt:
             return {"error": "No prompt specified"}
         
-        # Here would be LLM interaction
-        # Тут буде взаємодія з LLM
-        response = f"Processed prompt: {step.prompt}"
-        session.data[f"step_{step.id}_response"] = response
-        
-        return {"success": True, "response": response}
+        try:
+            # Prepare prompt with session data substitution
+            prompt = step.prompt
+            session_data = session.data
+            
+            # Substitute session data placeholders
+            for key, value in session_data.items():
+                placeholder = f"{{session.data.{key}}}"
+                if placeholder in prompt:
+                    prompt = prompt.replace(placeholder, str(value))
+            
+            # Use LLM client if available, otherwise use mock
+            if self.llm_client:
+                logger.info(f"Using LLM client for prompt: {prompt[:100]}...")
+                
+                # Get system message from profile if available
+                system_message = None
+                if session.user_id in self.profiles:
+                    profile = self.profiles[session.user_id]
+                    if hasattr(profile, 'preferences') and profile.preferences:
+                        system_message = f"User preferences: {profile.preferences}"
+                
+                response = self.llm_client.generate_response(
+                    prompt=prompt,
+                    system_message=system_message,
+                    **kwargs
+                )
+            else:
+                logger.info("Using mock LLM response")
+                response = f"Mock LLM response for: {prompt}"
+            
+            # Store response in session
+            session.data[f"step_{step.id}_response"] = response
+            
+            # Update session data in Redis if available
+            if self.redis_manager:
+                self.redis_manager.update_session_data(session.session_id, f"step_{step.id}_response", response)
+            
+            return {"success": True, "response": response}
+            
+        except Exception as e:
+            logger.error(f"Prompt step execution failed: {str(e)}")
+            return {"error": f"Prompt execution failed: {str(e)}"}
     
     def _execute_api_step(self, step: ProtocolStep, session: Session, **kwargs) -> Dict[str, Any]:
         """Execute API step / Виконати крок API"""
