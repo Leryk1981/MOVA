@@ -134,6 +134,7 @@ dmypy.json
 *.mova.json
 *.mova.yaml
 *.mova.yml
+.mova_cache/
 
 # IDE
 .vscode/
