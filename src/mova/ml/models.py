@@ -106,11 +106,11 @@ class IntentResult(BaseModel):
 
 class Entity(BaseModel):
     """Extracted entity / Витягнута сутність"""
-    text: str = Field(..., description="Текст сущности")
-    entity_type: EntityType = Field(..., description="Тип сущности")
-    start: int = Field(..., description="Начальная позиция")
-    end: int = Field(..., description="Конечная позиция")
-    confidence: float = Field(..., description="Уверенность в извлечении")
+    text: str = Field(..., description="Entity text / Текст сутності")
+    entity_type: EntityType = Field(..., description="Entity type / Тип сутності")
+    start: int = Field(..., description="Start position / Початкова позиція")
+    end: int = Field(..., description="End position / Кінцева позиція")
+    confidence: float = Field(..., description="Extraction confidence / Впевненість у витягу")
     
     class Config:
         json_schema_extra = {
@@ -126,10 +126,10 @@ class Entity(BaseModel):
 
 class EntityResult(BaseModel):
     """Entity extraction result / Результат витягу сутностей"""
-    entities: List[Entity] = Field(default_factory=list, description="Список извлеченных сущностей")
-    text: str = Field(..., description="Исходный текст")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Временная метка")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Дополнительные метаданные")
+    entities: List[Entity] = Field(default_factory=list, description="List of extracted entities / Список витягнутих сутностей")
+    text: str = Field(..., description="Source text / Вихідний текст")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp / Часова мітка")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata / Додаткові метадані")
     
     class Config:
         json_schema_extra = {
@@ -152,13 +152,13 @@ class EntityResult(BaseModel):
 
 class ContextResult(BaseModel):
     """Context analysis result / Результат аналізу контексту"""
-    session_id: str = Field(..., description="ID сессии")
-    user_id: Optional[str] = Field(default=None, description="ID пользователя")
-    conversation_history: List[str] = Field(default_factory=list, description="История разговора")
-    user_preferences: Dict[str, Any] = Field(default_factory=dict, description="Предпочтения пользователя")
-    context_score: float = Field(..., description="Оценка контекста")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Временная метка")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Дополнительные метаданные")
+    session_id: str = Field(..., description="Session ID / ID сесії")
+    user_id: Optional[str] = Field(default=None, description="User ID / ID користувача")
+    conversation_history: List[str] = Field(default_factory=list, description="Conversation history / Історія розмови")
+    user_preferences: Dict[str, Any] = Field(default_factory=dict, description="User preferences / Переваги користувача")
+    context_score: float = Field(..., description="Context score / Оцінка контексту")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp / Часова мітка")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata / Додаткові метадані")
     
     class Config:
         json_schema_extra = {
@@ -176,14 +176,14 @@ class ContextResult(BaseModel):
 
 class SentimentResult(BaseModel):
     """Sentiment analysis result / Результат аналізу настроєнь"""
-    sentiment: SentimentType = Field(..., description="Тип настроения")
-    confidence: float = Field(..., description="Уверенность в предсказании")
-    text: str = Field(..., description="Исходный текст")
-    positive_score: float = Field(..., description="Оценка позитивности")
-    negative_score: float = Field(..., description="Оценка негативности")
-    neutral_score: float = Field(..., description="Оценка нейтральности")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Временная метка")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Дополнительные метаданные")
+    sentiment: SentimentType = Field(..., description="Sentiment type / Тип настроєнь")
+    confidence: float = Field(..., description="Prediction confidence / Впевненість у передбаченні")
+    text: str = Field(..., description="Source text / Вихідний текст")
+    positive_score: float = Field(..., description="Positive score / Оцінка позитивності")
+    negative_score: float = Field(..., description="Negative score / Оцінка негативності")
+    neutral_score: float = Field(..., description="Neutral score / Оцінка нейтральності")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp / Часова мітка")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata / Додаткові метадані")
     
     class Config:
         json_schema_extra = {
@@ -202,15 +202,15 @@ class SentimentResult(BaseModel):
 
 class MLPrediction(BaseModel):
     """Comprehensive ML prediction result / Комплексний результат ML передбачення"""
-    intent: Optional[IntentResult] = Field(default=None, description="Результат распознавания намерения")
-    entities: Optional[EntityResult] = Field(default=None, description="Результат извлечения сущностей")
-    context: Optional[ContextResult] = Field(default=None, description="Результат анализа контекста")
-    sentiment: Optional[SentimentResult] = Field(default=None, description="Результат анализа настроений")
-    text: str = Field(..., description="Исходный текст")
-    session_id: Optional[str] = Field(default=None, description="ID сессии")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Временная метка")
-    processing_time: float = Field(..., description="Время обработки в секундах")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Дополнительные метаданные")
+    intent: Optional[IntentResult] = Field(default=None, description="Intent recognition result / Результат розпізнавання наміру")
+    entities: Optional[EntityResult] = Field(default=None, description="Entity extraction result / Результат витягу сутностей")
+    context: Optional[ContextResult] = Field(default=None, description="Context analysis result / Результат аналізу контексту")
+    sentiment: Optional[SentimentResult] = Field(default=None, description="Sentiment analysis result / Результат аналізу настроєнь")
+    text: str = Field(..., description="Source text / Вихідний текст")
+    session_id: Optional[str] = Field(default=None, description="Session ID / ID сесії")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp / Часова мітка")
+    processing_time: float = Field(..., description="Processing time in seconds / Час обробки в секундах")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata / Додаткові метадані")
     
     class Config:
         json_schema_extra = {
@@ -254,11 +254,11 @@ class MLPrediction(BaseModel):
 
 class TrainingExample(BaseModel):
     """Training example / Приклад для навчання моделі"""
-    text: str = Field(..., description="Текст примера")
-    intent: Optional[IntentType] = Field(default=None, description="Ожидаемое намерение")
-    entities: Optional[List[Entity]] = Field(default=None, description="Ожидаемые сущности")
-    sentiment: Optional[SentimentType] = Field(default=None, description="Ожидаемое настроение")
-    context: Optional[Dict[str, Any]] = Field(default=None, description="Контекст примера")
+    text: str = Field(..., description="Example text / Текст прикладу")
+    intent: Optional[IntentType] = Field(default=None, description="Expected intent / Очікуваний намір")
+    entities: Optional[List[Entity]] = Field(default=None, description="Expected entities / Очікувані сутності")
+    sentiment: Optional[SentimentType] = Field(default=None, description="Expected sentiment / Очікувані настрої")
+    context: Optional[Dict[str, Any]] = Field(default=None, description="Example context / Контекст прикладу")
     
     class Config:
         json_schema_extra = {
@@ -282,14 +282,14 @@ class TrainingExample(BaseModel):
 
 class TrainingConfig(BaseModel):
     """Training configuration / Конфігурація навчання"""
-    model_type: MLModelType = Field(..., description="Тип модели для обучения")
-    training_data: List[TrainingExample] = Field(..., description="Данные для обучения")
-    validation_data: Optional[List[TrainingExample]] = Field(default=None, description="Данные для валидации")
-    epochs: int = Field(default=10, description="Количество эпох")
-    learning_rate: float = Field(default=2e-5, description="Скорость обучения")
+    model_type: MLModelType = Field(..., description="Model type for training / Тип моделі для навчання")
+    training_data: List[TrainingExample] = Field(..., description="Training data / Дані для навчання")
+    validation_data: Optional[List[TrainingExample]] = Field(default=None, description="Validation data / Дані для валідації")
+    epochs: int = Field(default=10, description="Number of epochs / Кількість епох")
+    learning_rate: float = Field(default=2e-5, description="Learning rate / Швидкість навчання")
     batch_size: int = Field(default=16, description="Batch size / Розмір батчу")
-    max_length: int = Field(default=512, description="Максимальная длина")
-    save_path: str = Field(..., description="Путь для сохранения модели")
+    max_length: int = Field(default=512, description="Maximum length / Максимальна довжина")
+    save_path: str = Field(..., description="Path for saving model / Шлях для збереження моделі")
     
     class Config:
         json_schema_extra = {
