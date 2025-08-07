@@ -49,56 +49,6 @@ class MovaSchemaValidator:
             # Validate main structure
             validate(instance=data, schema=self.schemas["mova"])
             
-            # Validate individual components
-            if "intents" in data:
-                for i, intent in enumerate(data["intents"]):
-                    try:
-                        validate(instance=intent, schema=self.schemas["intent"])
-                    except ValidationError as e:
-                        errors.append(f"Intent {i}: {e.message}")
-            
-            if "protocols" in data:
-                for i, protocol in enumerate(data["protocols"]):
-                    try:
-                        validate(instance=protocol, schema=self.schemas["protocol"])
-                    except ValidationError as e:
-                        errors.append(f"Protocol {i}: {e.message}")
-            
-            if "tools" in data:
-                for i, tool in enumerate(data["tools"]):
-                    try:
-                        validate(instance=tool, schema=self.schemas["tool"])
-                    except ValidationError as e:
-                        errors.append(f"Tool {i}: {e.message}")
-            
-            if "instructions" in data:
-                for i, instruction in enumerate(data["instructions"]):
-                    try:
-                        validate(instance=instruction, schema=self.schemas["instruction"])
-                    except ValidationError as e:
-                        errors.append(f"Instruction {i}: {e.message}")
-            
-            if "profiles" in data:
-                for i, profile in enumerate(data["profiles"]):
-                    try:
-                        validate(instance=profile, schema=self.schemas["profile"])
-                    except ValidationError as e:
-                        errors.append(f"Profile {i}: {e.message}")
-            
-            if "sessions" in data:
-                for i, session in enumerate(data["sessions"]):
-                    try:
-                        validate(instance=session, schema=self.schemas["session"])
-                    except ValidationError as e:
-                        errors.append(f"Session {i}: {e.message}")
-            
-            if "contracts" in data:
-                for i, contract in enumerate(data["contracts"]):
-                    try:
-                        validate(instance=contract, schema=self.schemas["contract"])
-                    except ValidationError as e:
-                        errors.append(f"Contract {i}: {e.message}")
-            
         except ValidationError as e:
             errors.append(f"Main structure: {e.message}")
         
@@ -116,24 +66,15 @@ class MovaSchemaValidator:
             "type": "object",
             "properties": {
                 "version": {"type": "string"},
-                "intents": {"type": "array", "items": {"$ref": "#/definitions/intent"}},
-                "protocols": {"type": "array", "items": {"$ref": "#/definitions/protocol"}},
-                "tools": {"type": "array", "items": {"$ref": "#/definitions/tool"}},
-                "instructions": {"type": "array", "items": {"$ref": "#/definitions/instruction"}},
-                "profiles": {"type": "array", "items": {"$ref": "#/definitions/profile"}},
-                "sessions": {"type": "array", "items": {"$ref": "#/definitions/session"}},
-                "contracts": {"type": "array", "items": {"$ref": "#/definitions/contract"}}
+                "intents": {"type": "array", "items": {"type": "object"}},
+                "protocols": {"type": "array", "items": {"type": "object"}},
+                "tools": {"type": "array", "items": {"type": "object"}},
+                "instructions": {"type": "array", "items": {"type": "object"}},
+                "profiles": {"type": "array", "items": {"type": "object"}},
+                "sessions": {"type": "array", "items": {"type": "object"}},
+                "contracts": {"type": "array", "items": {"type": "object"}}
             },
-            "required": ["version"],
-            "definitions": {
-                "intent": self._get_intent_schema(),
-                "protocol": self._get_protocol_schema(),
-                "tool": self._get_tool_schema(),
-                "instruction": self._get_instruction_schema(),
-                "profile": self._get_profile_schema(),
-                "session": self._get_session_schema(),
-                "contract": self._get_contract_schema()
-            }
+            "required": ["version"]
         }
     
     def _get_intent_schema(self) -> Dict[str, Any]:

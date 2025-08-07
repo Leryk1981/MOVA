@@ -104,49 +104,49 @@ class MovaJsonParser:
             for intent_data in data["intents"]:
                 intent = self._parse_intent(intent_data)
                 if intent:
-                    result["intents"].append(intent)
+                    result["intents"].append(intent.dict())
         
         # Parse protocols
         if "protocols" in data:
             for protocol_data in data["protocols"]:
                 protocol = self._parse_protocol(protocol_data)
                 if protocol:
-                    result["protocols"].append(protocol)
+                    result["protocols"].append(protocol.dict())
         
         # Parse tools
         if "tools" in data:
             for tool_data in data["tools"]:
                 tool = self._parse_tool(tool_data)
                 if tool:
-                    result["tools"].append(tool)
+                    result["tools"].append(tool.dict())
         
         # Parse instructions
         if "instructions" in data:
             for instruction_data in data["instructions"]:
                 instruction = self._parse_instruction(instruction_data)
                 if instruction:
-                    result["instructions"].append(instruction)
+                    result["instructions"].append(instruction.dict())
         
         # Parse profiles
         if "profiles" in data:
             for profile_data in data["profiles"]:
                 profile = self._parse_profile(profile_data)
                 if profile:
-                    result["profiles"].append(profile)
+                    result["profiles"].append(profile.dict())
         
         # Parse sessions
         if "sessions" in data:
             for session_data in data["sessions"]:
                 session = self._parse_session(session_data)
                 if session:
-                    result["sessions"].append(session)
+                    result["sessions"].append(session.dict())
         
         # Parse contracts
         if "contracts" in data:
             for contract_data in data["contracts"]:
                 contract = self._parse_contract(contract_data)
                 if contract:
-                    result["contracts"].append(contract)
+                    result["contracts"].append(contract.dict())
         
         return result
     

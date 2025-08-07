@@ -93,7 +93,10 @@
       "id": "time_service",
       "name": "Time API",
       "endpoint": "https://worldtimeapi.org/api/timezone/{timezone}",
-      "method": "GET"
+      "method": "GET",
+      "headers": {},
+      "parameters": {},
+      "authentication": {}
     }
   ],
   "instructions": [
