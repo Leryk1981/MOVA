@@ -1,0 +1,21 @@
+{
+  "export_timestamp": "2025-08-07T12:38:34.201362",
+  "total_recommendations": 1,
+  "recommendations": [
+    {
+      "id": "config_export_test_session_001",
+      "type": "configuration",
+      "category": "fix",
+      "priority": "high",
+      "title": "Missing API Configuration",
+      "description": "API configuration section is missing from the configuration file",
+      "suggestion": "Add API configuration section with timeout, retries, and rate limiting settings",
+      "code_example": "{\n  \"api\": {\n    \"timeout\": 30,\n    \"retries\": 3,\n    \"rate_limit\": 100,\n    \"base_url\": \"https://api.example.com\"\n  }\n}",
+      "impact_score": 0.8,
+      "confidence": 0.9,
+      "context": {},
+      "timestamp": "2025-08-07 12:38:34.201362",
+      "metadata": {}
+    }
+  ]
+}

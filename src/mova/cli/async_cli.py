@@ -19,6 +19,11 @@ from ..parser.json_parser import MovaJsonParser
 from ..parser.yaml_parser import MovaYamlParser
 from ..validator.schema_validator import MovaSchemaValidator
 from ..validator.advanced_validator import MovaAdvancedValidator
+from ..ml.integration import MLIntegration
+from ..webhook_integration import get_webhook_integration
+from ..redis_manager import get_redis_manager
+from ..cache import get_cache
+from ..config import get_config_value, set_config_value
 
 
 console = Console()
@@ -32,8 +37,12 @@ console = Console()
 @click.option('--llm-temperature', default=0.7, type=float, help='LLM temperature (0.0-2.0) / Температура LLM')
 @click.option('--llm-max-tokens', default=1000, type=int, help='LLM max tokens / Максимальна кількість токенів')
 @click.option('--llm-timeout', default=30, type=int, help='LLM timeout in seconds / Таймаут LLM в секундах')
+@click.option('--webhook-enabled', is_flag=True, help='Enable webhook integration / Увімкнути інтеграцію webhook')
+@click.option('--cache-enabled', is_flag=True, help='Enable caching / Увімкнути кешування')
+@click.option('--ml-enabled', is_flag=True, help='Enable ML integration / Увімкнути ML інтеграцію')
 @click.pass_context
-def async_main(ctx, redis_url, llm_api_key, llm_model, llm_temperature, llm_max_tokens, llm_timeout):
+def async_main(ctx, redis_url, llm_api_key, llm_model, llm_temperature, llm_max_tokens, llm_timeout,
+               webhook_enabled, cache_enabled, ml_enabled):
     """
     Async MOVA - Machine-Operable Verbal Actions
     
@@ -48,6 +57,17 @@ def async_main(ctx, redis_url, llm_api_key, llm_model, llm_temperature, llm_max_
     ctx.obj['llm_temperature'] = llm_temperature
     ctx.obj['llm_max_tokens'] = llm_max_tokens
     ctx.obj['llm_timeout'] = llm_timeout
+    ctx.obj['webhook_enabled'] = webhook_enabled
+    ctx.obj['cache_enabled'] = cache_enabled
+    ctx.obj['ml_enabled'] = ml_enabled
+    
+    # Initialize integrations based on flags
+    if webhook_enabled:
+        set_config_value("webhook_enabled", True)
+    if cache_enabled:
+        set_config_value("cache_enabled", True)
+    if ml_enabled:
+        set_config_value("ml_enabled", True)
 
 
 @async_main.command()
@@ -201,6 +221,11 @@ async def _async_run(ctx, file_path, session_id, verbose, step_by_step):
         )
         
         try:
+            # Initialize integrations
+            webhook_integration = get_webhook_integration()
+            cache_manager = get_cache()
+            ml_integration = MLIntegration() if ctx.obj.get('ml_enabled') else None
+            
             # Load data to engine
             load_data_to_engine(engine, data)
             
@@ -216,6 +241,11 @@ async def _async_run(ctx, file_path, session_id, verbose, step_by_step):
             
             if verbose:
                 console.print(f"Using session: {session_id}")
+                console.print(f"Redis URL: {ctx.obj.get('redis_url') or 'In-memory'}")
+                console.print(f"LLM Model: {ctx.obj.get('llm_model') or 'Mock'}")
+                console.print(f"Webhook enabled: {ctx.obj.get('webhook_enabled')}")
+                console.print(f"Cache enabled: {ctx.obj.get('cache_enabled')}")
+                console.print(f"ML enabled: {ctx.obj.get('ml_enabled')}")
             
             # Execute protocols
             results = []
@@ -223,12 +253,41 @@ async def _async_run(ctx, file_path, session_id, verbose, step_by_step):
                 if verbose:
                     console.print(f"Executing protocol: {protocol['name']}")
                 
+                # Trigger webhook event
+                webhook_integration.trigger_validation_event("started", {
+                    "protocol": protocol['name'],
+                    "session_id": session_id
+                })
+                
                 if step_by_step:
                     result = await execute_protocol_step_by_step_async(engine, protocol, session_id, verbose)
                 else:
                     result = await engine.execute_protocol(protocol['name'], session_id)
                 
                 results.append(result)
+                
+                # Trigger webhook event
+                if "error" in result:
+                    webhook_integration.trigger_validation_event("failed", {
+                        "protocol": protocol['name'],
+                        "session_id": session_id,
+                        "error": result.get("error")
+                    })
+                else:
+                    webhook_integration.trigger_validation_event("completed", {
+                        "protocol": protocol['name'],
+                        "session_id": session_id,
+                        "result": result
+                    })
+                
+                # Generate ML recommendations if enabled
+                if ml_integration and "error" not in result:
+                    recommendations = await ml_integration.generate_recommendations(
+                        session_id=session_id,
+                        protocol_name=protocol['name']
+                    )
+                    if recommendations:
+                        display_recommendations(recommendations, verbose)
                 
                 if verbose:
                     display_execution_result(result)
@@ -601,6 +660,452 @@ def load_data_to_engine(engine: AsyncMovaEngine, data: dict):
             engine.add_tool(tool)
         except Exception as e:
             logger.warning(f"Failed to load tool {tool_data.get('id', 'unknown')}: {e}")
+
+
+# New async commands for Redis management
+@async_main.command()
+@click.option('--redis-url', default='redis://localhost:6379', help='Redis connection URL / URL підключення до Redis')
+@click.option('--session-id', help='Specific session ID to show / Конкретний ID сесії для показу')
+@click.option('--pattern', default='mova:session:*', help='Session pattern to list / Патерн сесій для списку')
+@click.pass_context
+def redis_sessions(ctx, redis_url, session_id, pattern):
+    """Manage Redis sessions asynchronously / Керувати сесіями Redis асинхронно"""
+    asyncio.run(_async_redis_sessions(ctx, redis_url, session_id, pattern))
+
+
+async def _async_redis_sessions(ctx, redis_url, session_id, pattern):
+    """Async Redis sessions management / Асинхронне керування сесіями Redis"""
+    try:
+        redis_manager = get_redis_manager(redis_url)
+        
+        if not redis_manager.is_connected():
+            console.print("❌ Failed to connect to Redis", style="red")
+            return
+        
+        if session_id:
+            # Show specific session
+            session_data = redis_manager.get_session_data(session_id)
+            if session_data:
+                console.print(Panel(f"Session: {session_id}", style="blue"))
+                console.print(json.dumps(session_data, indent=2, ensure_ascii=False))
+            else:
+                console.print(f"❌ Session {session_id} not found", style="red")
+        else:
+            # List all sessions
+            sessions = redis_manager.list_sessions(pattern)
+            if sessions:
+                table = Table(title="Redis Sessions")
+                table.add_column("Session ID", style="cyan")
+                table.add_column("TTL", style="yellow")
+                table.add_column("Created", style="green")
+                
+                for session in sessions:
+                    session_info = redis_manager.get_session_info(session)
+                    if session_info:
+                        table.add_row(
+                            session_info.get('session_id', 'Unknown'),
+                            str(session_info.get('ttl', 'Unknown')),
+                            session_info.get('created_at', 'Unknown')
+                        )
+                
+                console.print(table)
+            else:
+                console.print("ℹ️  No sessions found")
+                
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"Async Redis sessions error: {e}")
+
+
+@async_main.command()
+@click.option('--redis-url', default='redis://localhost:6379', help='Redis connection URL / URL підключення до Redis')
+@click.option('--session-id', help='Session ID to delete / ID сесії для видалення')
+@click.option('--pattern', default='mova:session:*', help='Session pattern to clear / Патерн сесій для очищення')
+@click.option('--confirm', is_flag=True, help='Confirm deletion / Підтвердити видалення')
+@click.pass_context
+def redis_clear(ctx, redis_url, session_id, pattern, confirm):
+    """Clear Redis sessions asynchronously / Очистити сесії Redis асинхронно"""
+    asyncio.run(_async_redis_clear(ctx, redis_url, session_id, pattern, confirm))
+
+
+async def _async_redis_clear(ctx, redis_url, session_id, pattern, confirm):
+    """Async Redis clear implementation / Асинхронна реалізація очищення Redis"""
+    try:
+        redis_manager = get_redis_manager(redis_url)
+        
+        if not redis_manager.is_connected():
+            console.print("❌ Failed to connect to Redis", style="red")
+            return
+        
+        if session_id:
+            # Delete specific session
+            if not confirm and not click.confirm(f"Delete session {session_id}?"):
+                return
+            
+            if redis_manager.delete_session(session_id):
+                console.print(f"✅ Session {session_id} deleted", style="green")
+            else:
+                console.print(f"❌ Failed to delete session {session_id}", style="red")
+        else:
+            # Clear all sessions
+            if not confirm and not click.confirm(f"Clear all sessions matching pattern '{pattern}'?"):
+                return
+            
+            if redis_manager.clear_all_sessions(pattern):
+                console.print(f"✅ All sessions cleared", style="green")
+            else:
+                console.print("❌ Failed to clear sessions", style="red")
+                
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"Async Redis clear error: {e}")
+
+
+# New async commands for cache management
+@async_main.command()
+@click.option('--key', help='Specific cache key to show / Конкретний ключ кешу для показу')
+@click.option('--stats', is_flag=True, help='Show cache statistics / Показати статистику кешу')
+def cache_info(key, stats):
+    """Show cache information asynchronously / Показати інформацію про кеш асинхронно"""
+    asyncio.run(_async_cache_info(key, stats))
+
+
+async def _async_cache_info(key, stats):
+    """Async cache info implementation / Асинхронна реалізація інформації про кеш"""
+    try:
+        cache_manager = get_cache()
+        
+        if key:
+            # Show specific cache entry
+            value = cache_manager.get(key)
+            if value is not None:
+                console.print(Panel(f"Cache Key: {key}", style="blue"))
+                console.print(json.dumps(value, indent=2, ensure_ascii=False))
+            else:
+                console.print(f"❌ Cache key '{key}' not found", style="red")
+        elif stats:
+            # Show cache statistics
+            stats_data = cache_manager.get_stats()
+            console.print(Panel("Cache Statistics", style="blue"))
+            
+            table = Table()
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="yellow")
+            
+            for metric, value in stats_data.items():
+                table.add_row(metric, str(value))
+            
+            console.print(table)
+        else:
+            console.print("ℹ️  Use --key to show specific cache entry or --stats for statistics")
+            
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"Async cache info error: {e}")
+
+
+@async_main.command()
+@click.option('--key', help='Specific cache key to delete / Конкретний ключ кешу для видалення')
+@click.option('--confirm', is_flag=True, help='Confirm deletion / Підтвердити видалення')
+def cache_clear(key, confirm):
+    """Clear cache asynchronously / Очистити кеш асинхронно"""
+    asyncio.run(_async_cache_clear(key, confirm))
+
+
+async def _async_cache_clear(key, confirm):
+    """Async cache clear implementation / Асинхронна реалізація очищення кешу"""
+    try:
+        cache_manager = get_cache()
+        
+        if key:
+            # Delete specific cache entry
+            if not confirm and not click.confirm(f"Delete cache key '{key}'?"):
+                return
+            
+            if cache_manager.delete(key):
+                console.print(f"✅ Cache key '{key}' deleted", style="green")
+            else:
+                console.print(f"❌ Failed to delete cache key '{key}'", style="red")
+        else:
+            # Clear all cache
+            if not confirm and not click.confirm("Clear all cache?"):
+                return
+            
+            if cache_manager.clear():
+                console.print("✅ All cache cleared", style="green")
+            else:
+                console.print("❌ Failed to clear cache", style="red")
+                
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"Async cache clear error: {e}")
+
+
+# New async commands for webhook management
+@async_main.command()
+@click.option('--url', required=True, help='Webhook URL / URL webhook')
+@click.option('--event-type', required=True, help='Event type / Тип події')
+@click.option('--data', help='Event data (JSON) / Дані події (JSON)')
+def webhook_test(url, event_type, data):
+    """Test webhook endpoint asynchronously / Тестувати webhook endpoint асинхронно"""
+    asyncio.run(_async_webhook_test(url, event_type, data))
+
+
+async def _async_webhook_test(url, event_type, data):
+    """Async webhook test implementation / Асинхронна реалізація тестування webhook"""
+    try:
+        from ..webhook import trigger_webhook_event, WebhookEventType
+        
+        # Parse event data if provided
+        event_data = None
+        if data:
+            try:
+                event_data = json.loads(data)
+            except json.JSONDecodeError:
+                console.print("❌ Invalid JSON data", style="red")
+                return
+        
+        # Map event type to enum
+        event_map = {
+            "validation_started": WebhookEventType.VALIDATION_STARTED,
+            "validation_completed": WebhookEventType.VALIDATION_COMPLETED,
+            "validation_failed": WebhookEventType.VALIDATION_FAILED,
+            "cache_updated": WebhookEventType.CACHE_UPDATED,
+            "cache_cleared": WebhookEventType.CACHE_CLEARED,
+            "redis_connected": WebhookEventType.REDIS_CONNECTED,
+            "redis_disconnected": WebhookEventType.REDIS_DISCONNECTED,
+            "llm_request_started": WebhookEventType.LLM_REQUEST_STARTED,
+            "llm_request_completed": WebhookEventType.LLM_REQUEST_COMPLETED,
+            "llm_request_failed": WebhookEventType.LLM_REQUEST_FAILED,
+            "ml_intent_recognized": WebhookEventType.ML_INTENT_RECOGNIZED,
+            "ml_entity_extracted": WebhookEventType.ML_ENTITY_EXTRACTED,
+            "ml_prediction_made": WebhookEventType.ML_PREDICTION_MADE
+        }
+        
+        webhook_event = event_map.get(event_type)
+        if not webhook_event:
+            console.print(f"❌ Unknown event type: {event_type}", style="red")
+            console.print(f"Available types: {list(event_map.keys())}")
+            return
+        
+        # Trigger webhook
+        trigger_webhook_event(webhook_event, event_data)
+        console.print(f"✅ Webhook event '{event_type}' triggered", style="green")
+        
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"Async webhook test error: {e}")
+
+
+@async_main.command()
+def webhook_status():
+    """Show webhook status asynchronously / Показати статус webhook асинхронно"""
+    asyncio.run(_async_webhook_status())
+
+
+async def _async_webhook_status():
+    """Async webhook status implementation / Асинхронна реалізація статусу webhook"""
+    try:
+        webhook_integration = get_webhook_integration()
+        
+        console.print(Panel("Webhook Status", style="blue"))
+        console.print(f"Enabled: {webhook_integration._enabled}")
+        
+        if webhook_integration._enabled:
+            webhook_manager = webhook_integration.webhook_manager
+            if webhook_manager:
+                console.print(f"Manager initialized: {webhook_manager is not None}")
+                # Add more status information as needed
+            else:
+                console.print("Manager not initialized")
+        else:
+            console.print("Webhook integration is disabled")
+            
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"Async webhook status error: {e}")
+
+
+# New async commands for ML management
+@async_main.command()
+@click.option('--model-id', help='Specific model ID to show / Конкретний ID моделі для показу')
+@click.option('--list-models', is_flag=True, help='List all available models / Показати всі доступні моделі')
+def ml_models(model_id, list_models):
+    """Show ML models information asynchronously / Показати інформацію про ML моделі асинхронно"""
+    asyncio.run(_async_ml_models(model_id, list_models))
+
+
+async def _async_ml_models(model_id, list_models):
+    """Async ML models implementation / Асинхронна реалізація ML моделей"""
+    try:
+        ml_integration = MLIntegration()
+        
+        if model_id:
+            # Show specific model info
+            model_info = ml_integration.get_model_info(model_id)
+            if model_info:
+                console.print(Panel(f"Model: {model_id}", style="blue"))
+                console.print(json.dumps(model_info, indent=2, ensure_ascii=False))
+            else:
+                console.print(f"❌ Model '{model_id}' not found", style="red")
+        elif list_models:
+            # List all models
+            models = ml_integration.list_available_models()
+            if models:
+                table = Table(title="Available ML Models")
+                table.add_column("Model ID", style="cyan")
+                table.add_column("Type", style="yellow")
+                table.add_column("Status", style="green")
+                
+                for model in models:
+                    table.add_row(
+                        model.get('id', 'Unknown'),
+                        model.get('type', 'Unknown'),
+                        model.get('status', 'Unknown')
+                    )
+                
+                console.print(table)
+            else:
+                console.print("ℹ️  No models found")
+        else:
+            console.print("ℹ️  Use --model-id to show specific model or --list-models for all models")
+            
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"Async ML models error: {e}")
+
+
+@async_main.command()
+@click.option('--model-id', required=True, help='Model ID to evaluate / ID моделі для оцінки')
+@click.option('--test-data', required=True, type=click.Path(exists=True), help='Test data file / Файл тестових даних')
+@click.option('--output', '-o', type=click.Path(), help='Save evaluation results to file / Зберегти результати оцінки в файл')
+def ml_evaluate(model_id, test_data, output):
+    """Evaluate ML model asynchronously / Оцінити ML модель асинхронно"""
+    asyncio.run(_async_ml_evaluate(model_id, test_data, output))
+
+
+async def _async_ml_evaluate(model_id, test_data, output):
+    """Async ML evaluate implementation / Асинхронна реалізація оцінки ML"""
+    try:
+        # Load test data
+        with open(test_data, 'r', encoding='utf-8') as f:
+            test_data_list = json.load(f)
+        
+        ml_integration = MLIntegration()
+        
+        console.print(f"🔍 Evaluating model: {model_id}")
+        console.print(f"📊 Test data: {len(test_data_list)} examples")
+        
+        # Run evaluation
+        result = await ml_integration.evaluate_model(model_id, test_data_list)
+        
+        # Display results
+        console.print(Panel("Model Evaluation Results", style="blue"))
+        console.print(json.dumps(result, indent=2, ensure_ascii=False))
+        
+        # Export if specified
+        if output:
+            with open(output, 'w', encoding='utf-8') as f:
+                json.dump(result, f, indent=2, ensure_ascii=False)
+            console.print(f"✅ Results exported to: {output}", style="green")
+            
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"Async ML evaluate error: {e}")
+
+
+@async_main.command()
+def ml_status():
+    """Show ML system status asynchronously / Показати статус ML системи асинхронно"""
+    asyncio.run(_async_ml_status())
+
+
+async def _async_ml_status():
+    """Async ML status implementation / Асинхронна реалізація статусу ML"""
+    try:
+        ml_integration = MLIntegration()
+        
+        status = ml_integration.get_system_status()
+        
+        console.print(Panel("ML System Status", style="blue"))
+        
+        table = Table()
+        table.add_column("Component", style="cyan")
+        table.add_column("Status", style="yellow")
+        table.add_column("Details", style="green")
+        
+        for component, info in status.items():
+            table.add_row(
+                component,
+                info.get('status', 'Unknown'),
+                str(info.get('details', ''))
+            )
+        
+        console.print(table)
+        
+    except Exception as e:
+        console.print(f"❌ Error: {e}", style="red")
+        logger.error(f"Async ML status error: {e}")
+
+
+def display_recommendations(recommendations, verbose=False):
+    """Display ML recommendations / Відобразити ML рекомендації"""
+    if not recommendations:
+        console.print("ℹ️  No recommendations available")
+        return
+    
+    console.print(Panel("🤖 AI Recommendations", style="cyan"))
+    
+    for i, rec in enumerate(recommendations, 1):
+        # Color based on priority
+        priority_colors = {
+            "critical": "red",
+            "high": "yellow", 
+            "medium": "blue",
+            "low": "green"
+        }
+        color = priority_colors.get(rec.priority.value, "white")
+        
+        console.print(f"{i}. [{rec.priority.value.upper()}] {rec.title}", style=color)
+        console.print(f"   Type: {rec.type.value}")
+        console.print(f"   Description: {rec.description}")
+        
+        if verbose and rec.details:
+            console.print(f"   Details: {rec.details}")
+        
+        if rec.suggestions:
+            console.print("   Suggestions:")
+            for suggestion in rec.suggestions:
+                console.print(f"     • {suggestion}")
+        
+        console.print()  # Empty line for readability
+
+
+def display_recommendation_summary(summary):
+    """Display recommendation summary / Відобразити підсумок рекомендацій"""
+    console.print(Panel("📊 Recommendation Summary", style="cyan"))
+    
+    # Overall statistics
+    if "total_recommendations" in summary:
+        console.print(f"Total recommendations: {summary['total_recommendations']}")
+    
+    # By priority
+    if "by_priority" in summary:
+        console.print("\nBy Priority:")
+        for priority, count in summary["by_priority"].items():
+            console.print(f"  {priority}: {count}")
+    
+    # By type
+    if "by_type" in summary:
+        console.print("\nBy Type:")
+        for rec_type, count in summary["by_type"].items():
+            console.print(f"  {rec_type}: {count}")
+    
+    # Recent recommendations
+    if "recent_recommendations" in summary:
+        console.print(f"\nRecent recommendations: {len(summary['recent_recommendations'])}")
+        for rec in summary["recent_recommendations"][:5]:  # Show last 5
+            console.print(f"  • {rec['title']} ({rec['priority']})")
 
 
 if __name__ == "__main__":

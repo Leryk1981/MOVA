@@ -228,7 +228,19 @@ class MLMetrics:
             "sentiment_accuracy": AccuracyMetric("sentiment_accuracy"),
             "response_time": ResponseTimeMetric("response_time"),
             "confidence": ConfidenceMetric("confidence"),
-            "overall_accuracy": AccuracyMetric("overall_accuracy")
+            "overall_accuracy": AccuracyMetric("overall_accuracy"),
+            # Recommendation metrics
+            "recommendations_generated": BaseMetric("recommendations_generated"),
+            "config_recommendations": BaseMetric("config_recommendations"),
+            "perf_recommendations": BaseMetric("perf_recommendations"),
+            "error_recommendations": BaseMetric("error_recommendations"),
+            "quality_recommendations": BaseMetric("quality_recommendations"),
+            "critical_recommendations": BaseMetric("critical_recommendations"),
+            "high_recommendations": BaseMetric("high_recommendations"),
+            "medium_recommendations": BaseMetric("medium_recommendations"),
+            "low_recommendations": BaseMetric("low_recommendations"),
+            "avg_impact_score": BaseMetric("avg_impact_score"),
+            "avg_confidence": BaseMetric("avg_confidence")
         })
     
     async def log_prediction(self, prediction: MLPrediction) -> None:
@@ -339,6 +351,56 @@ class MLMetrics:
             
         except Exception as e:
             logger.error(f"Ошибка логирования предсказания настроения: {e}")
+
+    async def update_recommendation_metrics(self, recommendations_count: int) -> None:
+        """Обновление метрик рекомендаций"""
+        try:
+            await self.metrics["recommendations_generated"].add_point(
+                recommendations_count,
+                {"timestamp": datetime.utcnow().isoformat()}
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка обновления метрик рекомендаций: {e}")
+
+    async def log_recommendation_metrics(self, recommendations: List[Any]) -> None:
+        """Логирование метрик рекомендаций"""
+        try:
+            # Подсчет по типам
+            config_count = sum(1 for r in recommendations if hasattr(r, 'type') and r.type == 'configuration')
+            perf_count = sum(1 for r in recommendations if hasattr(r, 'type') and r.type == 'performance')
+            error_count = sum(1 for r in recommendations if hasattr(r, 'type') and r.type == 'error_resolution')
+            quality_count = sum(1 for r in recommendations if hasattr(r, 'type') and r.type == 'code_quality')
+            
+            # Подсчет по приоритетам
+            critical_count = sum(1 for r in recommendations if hasattr(r, 'priority') and r.priority == 'critical')
+            high_count = sum(1 for r in recommendations if hasattr(r, 'priority') and r.priority == 'high')
+            medium_count = sum(1 for r in recommendations if hasattr(r, 'priority') and r.priority == 'medium')
+            low_count = sum(1 for r in recommendations if hasattr(r, 'priority') and r.priority == 'low')
+            
+            # Средние значения
+            impact_scores = [r.impact_score for r in recommendations if hasattr(r, 'impact_score')]
+            confidence_scores = [r.confidence for r in recommendations if hasattr(r, 'confidence')]
+            
+            avg_impact = sum(impact_scores) / len(impact_scores) if impact_scores else 0.0
+            avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
+            
+            # Обновление метрик
+            await self.metrics["config_recommendations"].add_point(config_count)
+            await self.metrics["perf_recommendations"].add_point(perf_count)
+            await self.metrics["error_recommendations"].add_point(error_count)
+            await self.metrics["quality_recommendations"].add_point(quality_count)
+            
+            await self.metrics["critical_recommendations"].add_point(critical_count)
+            await self.metrics["high_recommendations"].add_point(high_count)
+            await self.metrics["medium_recommendations"].add_point(medium_count)
+            await self.metrics["low_recommendations"].add_point(low_count)
+            
+            await self.metrics["avg_impact_score"].add_point(avg_impact)
+            await self.metrics["avg_confidence"].add_point(avg_confidence)
+            
+        except Exception as e:
+            logger.error(f"Ошибка логирования метрик рекомендаций: {e}")
     
     async def get_metrics_summary(self) -> Dict[str, MetricSummary]:
         """Получение сводки всех метрик"""

@@ -16,6 +16,7 @@ from .entity_extraction import EntityExtractionSystem
 from .context_analysis import ContextAnalysisSystem
 from .training import ModelTrainer
 from .metrics import MLMetrics
+from .recommendations import RecommendationEngine, RecommendationContext, Recommendation
 from .models import (
     MLPrediction, 
     IntentResult, 
@@ -50,6 +51,7 @@ class MLIntegration:
         )
         self.trainer = ModelTrainer(self.foundation.model_registry)
         self.metrics = MLMetrics()
+        self.recommendation_engine = RecommendationEngine(self.foundation)
         self._enabled = True
     
     @property
@@ -365,5 +367,134 @@ class MLIntegration:
             "metrics_count": len(self.metrics.metrics),
             "available_classifiers": len(self.list_available_classifiers()),
             "available_extractors": len(self.list_available_extractors()),
-            "available_analyzers": len(self.list_available_analyzers())
-        } 
+            "available_analyzers": len(self.list_available_analyzers()),
+            "recommendations_enabled": True
+        }
+
+    async def generate_recommendations(
+        self, 
+        session_id: str,
+        user_id: Optional[str] = None,
+        protocol_name: Optional[str] = None,
+        step_id: Optional[str] = None,
+        error_message: Optional[str] = None,
+        performance_metrics: Optional[Dict[str, Any]] = None,
+        configuration: Optional[Dict[str, Any]] = None,
+        usage_patterns: Optional[Dict[str, Any]] = None
+    ) -> List[Recommendation]:
+        """Генерация AI-рекомендаций на основе контекста"""
+        if not self.enabled:
+            logger.warning("ML интеграция отключена")
+            return []
+        
+        try:
+            context = RecommendationContext(
+                session_id=session_id,
+                user_id=user_id,
+                protocol_name=protocol_name,
+                step_id=step_id,
+                error_message=error_message,
+                performance_metrics=performance_metrics,
+                configuration=configuration,
+                usage_patterns=usage_patterns
+            )
+            
+            recommendations = await self.recommendation_engine.generate_recommendations(context)
+            logger.info(f"Сгенерировано {len(recommendations)} рекомендаций для сессии {session_id}")
+            
+            return recommendations
+            
+        except Exception as e:
+            logger.error(f"Ошибка генерации рекомендаций: {e}")
+            return []
+
+    async def analyze_configuration_recommendations(self, config: Dict[str, Any], session_id: str) -> List[Recommendation]:
+        """Анализ конфигурации и генерация рекомендаций"""
+        if not self.enabled:
+            return []
+        
+        try:
+            context = RecommendationContext(
+                session_id=session_id,
+                configuration=config
+            )
+            
+            return await self.recommendation_engine.analyze_configuration(config, context)
+            
+        except Exception as e:
+            logger.error(f"Ошибка анализа конфигурации: {e}")
+            return []
+
+    async def analyze_performance_recommendations(self, metrics: Dict[str, Any], session_id: str) -> List[Recommendation]:
+        """Анализ производительности и генерация рекомендаций"""
+        if not self.enabled:
+            return []
+        
+        try:
+            context = RecommendationContext(
+                session_id=session_id,
+                performance_metrics=metrics
+            )
+            
+            return await self.recommendation_engine.analyze_performance(metrics, context)
+            
+        except Exception as e:
+            logger.error(f"Ошибка анализа производительности: {e}")
+            return []
+
+    async def analyze_error_recommendations(self, error_message: str, session_id: str) -> List[Recommendation]:
+        """Анализ ошибок и генерация рекомендаций по их устранению"""
+        if not self.enabled:
+            return []
+        
+        try:
+            context = RecommendationContext(
+                session_id=session_id,
+                error_message=error_message
+            )
+            
+            return await self.recommendation_engine.analyze_errors(error_message, context)
+            
+        except Exception as e:
+            logger.error(f"Ошибка анализа ошибок: {e}")
+            return []
+
+    async def analyze_code_quality_recommendations(self, protocol_data: Dict[str, Any], session_id: str) -> List[Recommendation]:
+        """Анализ качества кода и генерация рекомендаций по улучшению"""
+        if not self.enabled:
+            return []
+        
+        try:
+            context = RecommendationContext(
+                session_id=session_id
+            )
+            
+            return await self.recommendation_engine.analyze_code_quality(protocol_data, context)
+            
+        except Exception as e:
+            logger.error(f"Ошибка анализа качества кода: {e}")
+            return []
+
+    async def get_recommendation_summary(self) -> Dict[str, Any]:
+        """Получение сводки по рекомендациям"""
+        if not self.enabled:
+            return {}
+        
+        try:
+            return await self.recommendation_engine.get_recommendation_summary()
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения сводки рекомендаций: {e}")
+            return {}
+
+    async def export_recommendations(self, recommendations: List[Recommendation], file_path: str) -> bool:
+        """Экспорт рекомендаций в файл"""
+        if not self.enabled:
+            return False
+        
+        try:
+            return await self.recommendation_engine.export_recommendations(recommendations, file_path)
+            
+        except Exception as e:
+            logger.error(f"Ошибка экспорта рекомендаций: {e}")
+            return False 

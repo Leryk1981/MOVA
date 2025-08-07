@@ -29,6 +29,12 @@ ML Integration додає можливості машинного навчанн
 - Підтримка позитивних, негативних та нейтральних настроєнь
 - Confidence scoring для кожного типу настроєнь
 
+### 🤖 AI-рекомендації (AI-powered Recommendations)
+- Автоматичні пропозиції для покращення конфігурації
+- Аналіз продуктивності та рекомендації оптимізації
+- Розумний аналіз помилок з пропозиціями вирішення
+- Покращення якості коду та найкращі практики
+
 ## Швидкий старт
 
 ### Встановлення
@@ -219,6 +225,75 @@ metrics = await ml_integration.get_metrics_summary()
 status = ml_integration.get_system_status()
 ```
 
+#### AI-рекомендації
+
+##### `generate_recommendations(session_id: str, **context) -> List[Recommendation]`
+
+Генерація комплексних AI-рекомендацій на основі контексту.
+
+```python
+recommendations = await ml_integration.generate_recommendations(
+    session_id="user_123",
+    error_message="Connection timeout",
+    performance_metrics={"avg_response_time": 3.5},
+    configuration={"api": {"timeout": 15}}
+)
+```
+
+##### `analyze_configuration_recommendations(config: Dict[str, Any], session_id: str) -> List[Recommendation]`
+
+Аналіз конфігурації та генерація рекомендацій.
+
+```python
+config = {"logging": {"level": "INFO"}}  # Missing API config
+recommendations = await ml_integration.analyze_configuration_recommendations(config, "session_123")
+```
+
+##### `analyze_performance_recommendations(metrics: Dict[str, Any], session_id: str) -> List[Recommendation]`
+
+Аналіз продуктивності та генерація рекомендацій оптимізації.
+
+```python
+metrics = {"avg_response_time": 3.5, "memory_usage": 0.85}
+recommendations = await ml_integration.analyze_performance_recommendations(metrics, "session_123")
+```
+
+##### `analyze_error_recommendations(error_message: str, session_id: str) -> List[Recommendation]`
+
+Аналіз помилок та генерація рекомендацій вирішення.
+
+```python
+recommendations = await ml_integration.analyze_error_recommendations(
+    "Connection timeout after 30 seconds", 
+    "session_123"
+)
+```
+
+##### `analyze_code_quality_recommendations(protocol_data: Dict[str, Any], session_id: str) -> List[Recommendation]`
+
+Аналіз якості коду та генерація рекомендацій покращення.
+
+```python
+protocol_data = {"name": "test", "steps": []}  # Empty steps
+recommendations = await ml_integration.analyze_code_quality_recommendations(protocol_data, "session_123")
+```
+
+##### `get_recommendation_summary() -> Dict[str, Any]`
+
+Отримання зведення по рекомендаціях.
+
+```python
+summary = await ml_integration.get_recommendation_summary()
+```
+
+##### `export_recommendations(recommendations: List[Recommendation], file_path: str) -> bool`
+
+Експорт рекомендацій до файлу.
+
+```python
+success = await ml_integration.export_recommendations(recommendations, "recommendations.json")
+```
+
 ## Типи даних
 
 ### IntentType
@@ -370,6 +445,47 @@ async def metrics_example():
     if metrics["success"]:
         for metric_name, metric_data in metrics["metrics"].items():
             print(f"{metric_name}: {metric_data['current_value']:.3f}")
+```
+
+### AI-рекомендації
+
+```python
+async def recommendations_example():
+    ml_integration = MLIntegration()
+    
+    # Аналіз конфігурації
+    config = {"logging": {"level": "INFO"}}  # Missing API config
+    config_recs = await ml_integration.analyze_configuration_recommendations(config, "session_123")
+    
+    # Аналіз продуктивності
+    metrics = {"avg_response_time": 3.5, "memory_usage": 0.85}
+    perf_recs = await ml_integration.analyze_performance_recommendations(metrics, "session_123")
+    
+    # Аналіз помилок
+    error_recs = await ml_integration.analyze_error_recommendations(
+        "Connection timeout after 30 seconds", 
+        "session_123"
+    )
+    
+    # Комплексний аналіз
+    all_recommendations = await ml_integration.generate_recommendations(
+        session_id="session_123",
+        error_message="Connection timeout",
+        performance_metrics=metrics,
+        configuration=config
+    )
+    
+    # Виведення результатів
+    for rec in all_recommendations:
+        print(f"🔍 {rec.title}")
+        print(f"   Тип: {rec.type.value}")
+        print(f"   Пріоритет: {rec.priority.value}")
+        print(f"   Вплив: {rec.impact_score:.2f}")
+        print(f"   Пропозиція: {rec.suggestion}")
+        print()
+    
+    # Експорт рекомендацій
+    await ml_integration.export_recommendations(all_recommendations, "recommendations.json")
 ```
 
 ## Webhook інтеграція
