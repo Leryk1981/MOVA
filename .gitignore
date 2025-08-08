@@ -159,4 +159,5 @@ test_*.py
 
 # OS
 .DS_Store
-Thumbs.db web_interface/frontend/node_modules/
+Thumbs.db
+web_interface/frontend/node_modules/
