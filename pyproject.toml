@@ -1,15 +1,46 @@
 [project]
 name = "mova-sdk"
 version = "0.1.0"
-description = "MOVA SDK"
-authors = [{ name="Leryk1981", email="your@email.com" }]
+description = "MOVA SDK - Powerful tool for running tasks via CLI or Python API"
+authors = [{ name="Leryk1981", email="s.myasoedov81@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = []
+dependencies = [
+    "requests>=2.25.0",
+    "click>=8.0.0",
+    "pydantic>=1.8.0",
+    "asyncio>=3.4.3",
+    "aiohttp>=3.8.0",
+    "redis>=4.0.0",
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "scikit-learn>=1.0.0",
+    "fastapi>=0.70.0",
+    "uvicorn>=0.15.0"
+]
 
 [project.optional-dependencies]
-dev = ["pytest", "mypy", "flake8", "black"]
+dev = ["pytest", "mypy", "flake8", "black", "pytest-cov", "isort"]
+web = ["fastapi>=0.70.0", "uvicorn>=0.15.0", "jinja2>=3.0.0"]
+ml = ["torch>=1.10.0", "transformers>=4.15.0", "sentence-transformers>=2.2.0"]
+
+[project.scripts]
+mova-cli = "mova_sdk.cli.main:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
