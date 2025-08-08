@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mova-sdk"
+version = "0.1.0"
+description = "MOVA SDK (MVP)"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "MOVA Team" }]
+license = { text = "MIT" }
+dependencies = [
+  "requests>=2.28",
+]
+
+[project.scripts]
+mova-cli = "mova_sdk.cli.main:main"
