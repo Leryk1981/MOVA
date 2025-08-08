@@ -2,27 +2,28 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DocumentTextIcon, FolderIcon, CpuChipIcon, ChartBarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { apiService } from '@/services/api';
+import { SystemStatus, MLModel, ApiResponse, MetricsResponse } from '@/types/api';
 
 const Dashboard: React.FC = () => {
   // Отримання системного статусу
-  const { data: systemStatus, isLoading: systemLoading, error: systemError } = useQuery({
+  const { data: systemStatus, isLoading: systemLoading, error: systemError } = useQuery<SystemStatus>({
     queryKey: ['system-status'],
     queryFn: () => apiService.getSystemStatus(),
-    refetchInterval: 30000,
+    refetchInterval: 30000, // Оновлення кожні 30 секунд
   });
 
   // Отримання ML моделей
-  const { data: mlModelsResponse, isLoading: mlLoading } = useQuery({
+  const { data: mlModelsResponse, isLoading: mlLoading } = useQuery<ApiResponse<{ models: MLModel[] }>>({
     queryKey: ['ml-models'],
     queryFn: () => apiService.getMLModels(),
-    refetchInterval: 60000,
+    refetchInterval: 60000, // Оновлення кожну хвилину
   });
 
   // Отримання системних метрик
-  const { data: metricsResponse, isLoading: metricsLoading } = useQuery({
+  const { data: metricsResponse, isLoading: metricsLoading } = useQuery<ApiResponse<MetricsResponse>>({
     queryKey: ['system-metrics'],
     queryFn: () => apiService.getSystemMetrics(),
-    refetchInterval: 15000,
+    refetchInterval: 15000, // Оновлення кожні 15 секунд
   });
 
   const mlModels = mlModelsResponse?.data?.models || [];
@@ -58,9 +59,9 @@ const Dashboard: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'success':
+      case 'healthy':
         return 'bg-green-100 text-green-600';
-      case 'pending':
+      case 'warning':
         return 'bg-yellow-100 text-yellow-600';
       case 'error':
         return 'bg-red-100 text-red-600';
@@ -71,9 +72,9 @@ const Dashboard: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'success':
+      case 'healthy':
         return <div className="h-3 w-3 rounded-full bg-green-600"></div>;
-      case 'pending':
+      case 'warning':
         return <div className="h-3 w-3 rounded-full bg-yellow-600"></div>;
       case 'error':
         return <div className="h-3 w-3 rounded-full bg-red-600"></div>;
@@ -96,16 +97,16 @@ const Dashboard: React.FC = () => {
         <div className="card p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getStatusColor(systemStatus?.overall_status || 'unknown')}`}>
-                {getStatusIcon(systemStatus?.overall_status || 'unknown')}
+              <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getStatusColor(systemStatus?.status || 'unknown')}`}>
+                {getStatusIcon(systemStatus?.status || 'unknown')}
               </div>
             </div>
             <div className="ml-4">
               <h3 className="text-sm font-medium text-gray-900">Статус системи</h3>
               <p className="text-sm text-gray-500">
-                {systemStatus?.overall_status === 'success' ? 'Всі системи працюють' : 
-                 systemStatus?.overall_status === 'pending' ? 'Є попередження' : 
-                 systemStatus?.overall_status === 'error' ? 'Є помилки' : 'Невідомо'}
+                {systemStatus?.status === 'healthy' ? 'Всі системи працюють' : 
+                 systemStatus?.status === 'warning' ? 'Є попередження' : 
+                 systemStatus?.status === 'error' ? 'Є помилки' : 'Невідомо'}
               </p>
             </div>
           </div>
@@ -282,8 +283,8 @@ const Dashboard: React.FC = () => {
                 <div className={`h-3 w-3 rounded-full ${getStatusColor(component.status)}`}></div>
                 <span className="text-sm font-medium text-gray-900">{component.name}</span>
                 <span className="text-xs text-gray-500">
-                  {component.status === 'success' ? 'OK' : 
-                   component.status === 'pending' ? '⚠️' : '❌'}
+                  {component.status === 'healthy' ? 'OK' : 
+                   component.status === 'warning' ? '⚠️' : '❌'}
                 </span>
               </div>
             ))}

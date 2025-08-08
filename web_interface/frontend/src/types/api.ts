@@ -148,14 +148,4 @@ export interface MetricsResponse {
   metrics: MetricData[];
   time_range: string;
   aggregation: string;
-  cpu?: number;
-  memory?: number;
-  disk?: number;
-  mova?: {
-    requests_total: number;
-    requests_success: number;
-    requests_error: number;
-    average_response_time: number;
-    cache_hit_rate: number;
-  };
 } 
