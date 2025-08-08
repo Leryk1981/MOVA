@@ -7,13 +7,10 @@ import {
   CpuChipIcon, 
   ChartBarIcon,
   Bars3Icon,
-  XMarkIcon,
-  UserCircleIcon,
-  ArrowRightOnRectangleIcon
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import WebSocketStatus from './WebSocketStatus';
 import NotificationCenter from './NotificationCenter';
-import { useAuth } from '../../contexts/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -22,7 +19,6 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  const { user, logout } = useAuth();
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -136,28 +132,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               
               {/* Notification Center */}
               <NotificationCenter />
-              
-              {/* User Info */}
-              {user && (
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    <UserCircleIcon className="h-6 w-6 text-gray-400" />
-                    <div className="text-sm">
-                      <p className="font-medium text-gray-900">{user.firstName} {user.lastName}</p>
-                      <p className="text-gray-500">{user.role.name}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Logout Button */}
-                  <button
-                    onClick={logout}
-                    className="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
-                    title="Вийти"
-                  >
-                    <ArrowRightOnRectangleIcon className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
               
               {/* Status indicator */}
               <div className="flex items-center space-x-2">

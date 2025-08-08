@@ -1,44 +1,4 @@
-// Browser-compatible EventEmitter
-class EventEmitter {
-  private events: { [key: string]: Function[] } = {};
-
-  on(event: string, listener: Function): void {
-    if (!this.events[event]) {
-      this.events[event] = [];
-    }
-    this.events[event].push(listener);
-  }
-
-  off(event: string, listener?: Function): void {
-    if (!this.events[event]) return;
-    
-    if (listener) {
-      this.events[event] = this.events[event].filter(l => l !== listener);
-    } else {
-      delete this.events[event];
-    }
-  }
-
-  emit(event: string, ...args: any[]): void {
-    if (!this.events[event]) return;
-    
-    this.events[event].forEach(listener => {
-      try {
-        listener(...args);
-      } catch (error) {
-        console.error('Error in event listener:', error);
-      }
-    });
-  }
-
-  removeAllListeners(event?: string): void {
-    if (event) {
-      delete this.events[event];
-    } else {
-      this.events = {};
-    }
-  }
-}
+import { EventEmitter } from 'events';
 
 export interface WebSocketEvent {
   type: string;
@@ -76,8 +36,6 @@ export class WebSocketClient extends EventEmitter {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
       return;
     }
-
-
 
     this.isConnecting = true;
     this.isManualClose = false;
@@ -265,30 +223,13 @@ let wsClient: WebSocketClient | null = null;
 
 export const getWebSocketClient = (): WebSocketClient => {
   if (!wsClient) {
-    // В режимі розробки створюємо заглушку без реального WebSocket
-    if (import.meta.env.DEV) {
-      const mockConfig = { url: 'ws://localhost:8000/mock-ws' };
-      wsClient = new WebSocketClient(mockConfig);
-      // Перевизначаємо метод connect для режиму розробки
-      wsClient.connect = async () => {
-        console.log('WebSocket: Mock connection in development mode');
-        wsClient?.emit('connected');
-      };
-    } else {
-      const wsUrl = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:8000/ws`;
-      wsClient = new WebSocketClient({ url: wsUrl });
-    }
+    const wsUrl = import.meta.env.VITE_WS_URL || `ws://${window.location.host}/ws`;
+    wsClient = new WebSocketClient({ url: wsUrl });
   }
   return wsClient;
 };
 
 export const connectWebSocket = async (): Promise<void> => {
-  // В режимі розробки не підключаємо WebSocket
-  if (import.meta.env.DEV) {
-    console.log('WebSocket: Skipping connection in development mode');
-    return;
-  }
-  
   const client = getWebSocketClient();
   await client.connect();
 };
