@@ -2,14 +2,8 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DocumentTextIcon, FolderIcon, CpuChipIcon, ChartBarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { apiService } from '@/services/api';
-import LiveActivityFeed from '../components/common/LiveActivityFeed';
-import { useSystemStatus, useSystemMetrics } from '../hooks/useWebSocket';
 
 const Dashboard: React.FC = () => {
-  // WebSocket real-time data
-  const realTimeStatus = useSystemStatus();
-  const realTimeMetrics = useSystemMetrics();
-
   // Отримання системного статусу
   const { data: systemStatus, isLoading: systemLoading, error: systemError } = useQuery({
     queryKey: ['system-status'],
@@ -30,10 +24,6 @@ const Dashboard: React.FC = () => {
     queryFn: () => apiService.getSystemMetrics(),
     refetchInterval: 15000,
   });
-
-  // Use real-time data if available, fallback to API data
-  const currentStatus = realTimeStatus || systemStatus;
-  const currentMetrics = realTimeMetrics || metricsResponse?.data;
 
   const mlModels = mlModelsResponse?.data?.models || [];
   const metrics = metricsResponse?.data;
@@ -113,9 +103,9 @@ const Dashboard: React.FC = () => {
             <div className="ml-4">
               <h3 className="text-sm font-medium text-gray-900">Статус системи</h3>
               <p className="text-sm text-gray-500">
-                {currentStatus?.overall_status === 'success' ? 'Всі системи працюють' : 
-                 currentStatus?.overall_status === 'pending' ? 'Є попередження' : 
-                 currentStatus?.overall_status === 'error' ? 'Є помилки' : 'Невідомо'}
+                {systemStatus?.overall_status === 'success' ? 'Всі системи працюють' : 
+                 systemStatus?.overall_status === 'pending' ? 'Є попередження' : 
+                 systemStatus?.overall_status === 'error' ? 'Є помилки' : 'Невідомо'}
               </p>
             </div>
           </div>
@@ -132,7 +122,7 @@ const Dashboard: React.FC = () => {
             <div className="ml-4">
               <h3 className="text-sm font-medium text-gray-900">Активні протоколи</h3>
               <p className="text-sm text-gray-500">
-                {currentMetrics?.mova?.requests_total || 0} запитів
+                {metrics?.mova?.requests_total || 0} запитів
               </p>
             </div>
           </div>
@@ -167,7 +157,7 @@ const Dashboard: React.FC = () => {
               <h3 className="text-sm font-medium text-gray-900">Продуктивність</h3>
               <p className="text-sm text-gray-500">
                 {metricsLoading ? 'Завантаження...' : 
-                 `${Math.round((currentMetrics?.mova?.average_response_time || 0) * 1000)}ms`}
+                 `${Math.round((metrics?.mova?.average_response_time || 0) * 1000)}ms`}
               </p>
             </div>
           </div>
@@ -175,7 +165,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* System Metrics */}
-      {currentMetrics && (
+      {metrics && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="card p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Системні ресурси</h2>
@@ -183,36 +173,36 @@ const Dashboard: React.FC = () => {
               <div>
                 <div className="flex justify-between text-sm">
                   <span>CPU</span>
-                  <span>{Math.round(currentMetrics.cpu || 0)}%</span>
+                  <span>{Math.round(metrics.cpu || 0)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                   <div 
                     className="bg-blue-600 h-2 rounded-full" 
-                    style={{ width: `${Math.min(currentMetrics.cpu || 0, 100)}%` }}
+                    style={{ width: `${Math.min(metrics.cpu || 0, 100)}%` }}
                   ></div>
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-sm">
                   <span>Пам'ять</span>
-                  <span>{Math.round(currentMetrics.memory || 0)}%</span>
+                  <span>{Math.round(metrics.memory || 0)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                   <div 
                     className="bg-green-600 h-2 rounded-full" 
-                    style={{ width: `${Math.min(currentMetrics.memory || 0, 100)}%` }}
+                    style={{ width: `${Math.min(metrics.memory || 0, 100)}%` }}
                   ></div>
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-sm">
                   <span>Диск</span>
-                  <span>{Math.round(currentMetrics.disk || 0)}%</span>
+                  <span>{Math.round(metrics.disk || 0)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                   <div 
                     className="bg-orange-600 h-2 rounded-full" 
-                    style={{ width: `${Math.min(currentMetrics.disk || 0, 100)}%` }}
+                    style={{ width: `${Math.min(metrics.disk || 0, 100)}%` }}
                   ></div>
                 </div>
               </div>
@@ -224,23 +214,23 @@ const Dashboard: React.FC = () => {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Всього запитів:</span>
-                <span className="text-sm font-medium">{currentMetrics.mova?.requests_total || 0}</span>
+                <span className="text-sm font-medium">{metrics.mova?.requests_total || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Успішних:</span>
-                <span className="text-sm font-medium text-green-600">{currentMetrics.mova?.requests_success || 0}</span>
+                <span className="text-sm font-medium text-green-600">{metrics.mova?.requests_success || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Помилок:</span>
-                <span className="text-sm font-medium text-red-600">{currentMetrics.mova?.requests_error || 0}</span>
+                <span className="text-sm font-medium text-red-600">{metrics.mova?.requests_error || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Середній час відповіді:</span>
-                <span className="text-sm font-medium">{Math.round((currentMetrics.mova?.average_response_time || 0) * 1000)}ms</span>
+                <span className="text-sm font-medium">{Math.round((metrics.mova?.average_response_time || 0) * 1000)}ms</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Кеш хітів:</span>
-                <span className="text-sm font-medium">{Math.round((currentMetrics.mova?.cache_hit_rate || 0) * 100)}%</span>
+                <span className="text-sm font-medium">{Math.round((metrics.mova?.cache_hit_rate || 0) * 100)}%</span>
               </div>
             </div>
           </div>
@@ -283,11 +273,11 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* System Components Status */}
-      {currentStatus?.components && (
+      {systemStatus?.components && (
         <div className="card p-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">Статус компонентів</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {currentStatus.components.map((component: any, index: number) => (
+            {systemStatus.components.map((component, index) => (
               <div key={index} className="flex items-center space-x-3">
                 <div className={`h-3 w-3 rounded-full ${getStatusColor(component.status)}`}></div>
                 <span className="text-sm font-medium text-gray-900">{component.name}</span>
@@ -300,35 +290,6 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Live Activity Feed - Phase 4 Feature */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <LiveActivityFeed maxItems={20} className="h-96" />
-        
-        <div className="card p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Real-time статус</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">WebSocket з'єднання:</span>
-              <span className={`text-sm font-medium ${realTimeStatus ? 'text-green-600' : 'text-gray-500'}`}>
-                {realTimeStatus ? 'Активне' : 'Неактивне'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Останнє оновлення:</span>
-              <span className="text-sm text-gray-500">
-                {realTimeStatus ? 'Щойно' : 'Н/Д'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Реальний час:</span>
-              <span className={`text-sm font-medium ${realTimeStatus ? 'text-green-600' : 'text-yellow-600'}`}>
-                {realTimeStatus ? 'Увімкнено' : 'Вимкнено'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
