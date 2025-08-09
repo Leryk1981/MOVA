@@ -15,6 +15,9 @@ MOVA (Machine-Operable Verbal Actions) is a declarative language designed for in
 - **Context Management**: Advanced session and profile management
 - **Redis Integration**: Scalable session storage with TTL support
 - **LLM Integration**: Support for OpenAI/OpenRouter API with configurable parameters
+- **Presets System**: Predefined LLM configurations for different use cases
+- **Tool-Calling Support**: Advanced tool orchestration with OpenRouter integration
+- **Memory System**: Context-aware memory management for conversations
 - **Advanced Validation**: Comprehensive validation with detailed reports and recommendations
 - **CLI Extensions**: Component testing and step-by-step execution
 - **Webhook Support**: Real-time event notifications for external integrations
@@ -48,7 +51,7 @@ python -c "from src.mova.cli.cli import main; main()" run examples/basic_example
 
 ### 🤖 LLM Integration with OpenRouter
 
-MOVA SDK 2.2 includes LLM integration with OpenRouter for accessing various AI models:
+MOVA SDK 2.2 includes enhanced LLM integration with OpenRouter for accessing various AI models:
 
 ```python
 import os
@@ -58,10 +61,7 @@ from src.mova.core.engine import MovaEngine
 os.environ["OPENROUTER_API_KEY"] = "your-api-key-here"
 
 # Initialize engine with LLM support
-engine = MovaEngine(
-    llm_api_key="your-api-key",  # or use environment variable
-    llm_model="openai/gpt-3.5-turbo"
-)
+engine = MovaEngine()
 
 # Create protocol with LLM prompt
 protocol = Protocol(
@@ -98,6 +98,192 @@ print(result["response"])
 python -c "from src.mova.cli.cli import main; main()" run examples/config.json \
   --llm-api-key "your-api-key" \
   --llm-model "openai/gpt-4"
+```
+
+### ⚙️ Presets System
+
+MOVA SDK 2.2 introduces a powerful presets system for predefined LLM configurations:
+
+```python
+from src.mova.core.engine import MovaEngine
+from src.mova.config.loader import load_config
+
+# Load configuration with presets
+config = load_config("examples/config.yaml")
+engine = MovaEngine(config=config)
+
+# Use different presets for different tasks
+# General conversation preset
+session_general = engine.create_session("user123", preset="general")
+
+# Creative writing preset
+session_creative = engine.create_session("user123", preset="creative")
+
+# Technical analysis preset
+session_technical = engine.create_session("user123", preset="technical")
+```
+
+**Available Presets:**
+- `general` - Balanced for everyday conversations
+- `creative` - Enhanced for creative writing
+- `technical` - Optimized for technical analysis
+- `concise` - Brief and to the point responses
+
+**Configuration Example:**
+```yaml
+llm:
+  provider: openrouter
+  api_key_env: OPENROUTER_API_KEY
+  base_url: https://openrouter.ai/api/v1
+  default_model: openrouter/anthropic/claude-3-haiku
+
+presets:
+  general:
+    model: openrouter/anthropic/claude-3-haiku
+    temperature: 0.3
+    max_tokens: 1024
+    system: "You are a helpful assistant."
+  
+  creative:
+    model: openai/gpt-4
+    temperature: 0.8
+    max_tokens: 2048
+    system: "You are a creative writing assistant."
+  
+  technical:
+    model: anthropic/claude-3-sonnet
+    temperature: 0.1
+    max_tokens: 1536
+    system: "You are a technical expert."
+```
+
+### 🛠️ Tool-Calling Support
+
+MOVA SDK 2.2 includes advanced tool-calling capabilities with OpenRouter integration:
+
+```python
+from src.mova.core.engine import MovaEngine
+from src.mova.core.tools.registry import ToolRegistry
+
+# Initialize engine with tool support
+engine = MovaEngine()
+
+# Register tools
+registry = ToolRegistry()
+
+# Define a weather tool
+weather_tool = {
+    "name": "get_weather",
+    "description": "Get current weather information for a location",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA"
+            }
+        },
+        "required": ["location"]
+    }
+}
+
+# Add tool to registry
+registry.register_tool("get_weather", weather_tool)
+
+# Create protocol with tool-calling
+protocol = Protocol(
+    protocol_id="weather_assistant",
+    name="Weather Assistant",
+    steps=[
+        ProtocolStep(
+            id="step1",
+            action=ActionType.PROMPT,
+            prompt="What's the weather like in {session.data.location}?",
+            tools=["get_weather"]
+        )
+    ]
+)
+
+engine.add_protocol(protocol)
+
+# Usage
+session = engine.create_session("user123")
+engine.update_session_data(session.session_id, {"location": "Kyiv, Ukraine"})
+result = engine.execute_protocol("weather_assistant", session.session_id)
+print(result["response"])
+```
+
+**Tool-Calling Features:**
+- **Dynamic Tool Selection**: Tools are selected based on LLM analysis
+- **Parameter Extraction**: Automatic extraction of parameters from user input
+- **Error Handling**: Graceful handling of tool execution errors
+- **Result Integration**: Tool results are integrated back into the conversation
+- **Parallel Execution**: Support for parallel tool execution when appropriate
+
+**CLI Usage with Tools:**
+```bash
+# Run with tool support
+python -c "from src.mova.cli.cli import main; main()" run examples/presets_and_tool_calling_example.json \
+  --tools-enabled \
+  --tools-dir examples/tools/
+```
+
+### 🧠 Memory System
+
+MOVA SDK 2.2 includes a sophisticated memory system for context-aware conversations:
+
+```python
+from src.mova.core.engine import MovaEngine
+from src.mova.core.memory_system import MemorySystem
+
+# Initialize engine with memory support
+engine = MovaEngine()
+
+# Access memory system
+memory = engine.memory_system
+
+# Store information in memory
+memory.add_to_memory(
+    session_id="user123",
+    content="User prefers concise responses",
+    memory_type="semantic",
+    importance=0.8
+)
+
+# Retrieve relevant context
+context = memory.get_relevant_context(
+    session_id="user123",
+    query="What are the user's preferences?",
+    limit=5
+)
+
+# Search memory
+results = memory.search_memory(
+    session_id="user123",
+    query="preferences",
+    memory_type="semantic"
+)
+```
+
+**Memory Types:**
+- **Short-term Memory**: Temporary context for current conversation
+- **Episodic Memory**: Stores specific events and interactions
+- **Semantic Memory**: General knowledge and preferences
+- **Working Memory**: Active processing of current information
+
+**Memory Features:**
+- **Automatic Context Retrieval**: Relevant memories are automatically retrieved
+- **Importance Scoring**: Memories are scored by importance and relevance
+- **Memory Consolidation**: Important short-term memories are promoted to long-term
+- **Memory Search**: Full-text search across all memory types
+- **Memory Management**: Tools for managing and pruning memories
+
+**CLI Usage with Memory:**
+```bash
+# Run with memory support
+python -c "from src.mova.cli.cli import main; main()" run examples/config.json \
+  --memory-enabled \
+  --memory-ttl 86400  # 24 hours
 ```
 
 ### 🧠 ML Integration
@@ -241,6 +427,14 @@ MOVA (Machine-Operable Verbal Actions) - це декларативна мова,
 - **Інтеграція API**: Вбудована підтримка викликів зовнішніх API
 - **Управління контекстом**: Розширене управління сесіями та профілями
 - **Redis інтеграція**: Масштабоване зберігання сесій з підтримкою TTL
+- **LLM інтеграція**: Підтримка OpenAI/OpenRouter API з налаштовуваними параметрами
+- **Система пресетів**: Попередньо визначені конфігурації LLM для різних випадків використання
+- **Підтримка Tool-Calling**: Розширена оркестрація інструментів з інтеграцією OpenRouter
+- **Система пам'яті**: Контекстно-орієнтоване управління пам'яттю для розмов
+- **Розширена валідація**: Комплексна валідація з детальними звітами та рекомендаціями
+- **CLI розширення**: Тестування компонентів та покрокове виконання
+- **Підтримка вебхуків**: Сповіщення про події в реальному часі для зовнішніх інтеграцій
+- **ML інтеграція**: Розпізнавання намірів, витягування сутностей, аналіз контексту та настроїв
 - **Двомовна документація**: Повна документація українською та англійською мовами
 
 ### Швидкий старт
@@ -266,6 +460,243 @@ python -m mova.cli
 
 # Запустити з Redis (опціонально)
 python -c "from src.mova.cli.cli import main; main()" run examples/basic_example.json --redis-url redis://localhost:6379
+```
+
+### 🤖 LLM інтеграція з OpenRouter
+
+MOVA SDK 2.2 включає покращену LLM інтеграцію з OpenRouter для доступу до різних AI моделей:
+
+```python
+import os
+from src.mova.core.engine import MovaEngine
+
+# Встановіть ваш OpenRouter API ключ
+os.environ["OPENROUTER_API_KEY"] = "your-api-key-here"
+
+# Ініціалізуйте двигун з підтримкою LLM
+engine = MovaEngine()
+
+# Створіть протокол з LLM промптом
+protocol = Protocol(
+    protocol_id="ai_assistant",
+    name="AI Assistant",
+    steps=[
+        ProtocolStep(
+            id="step1",
+            action=ActionType.PROMPT,
+            prompt="Користувач запитав: {session.data.user_input}. Надайте корисну відповідь."
+        )
+    ]
+)
+
+engine.add_protocol(protocol)
+
+# Використання
+session = engine.create_session("user123")
+engine.update_session_data(session.session_id, {"user_input": "Що таке ШІ?"})
+result = engine.execute_protocol("ai_assistant", session.session_id)
+print(result["response"])
+```
+
+**Підтримувані моделі:**
+- `openai/gpt-3.5-turbo` - Швидка та економічна
+- `openai/gpt-4` - Потужніша
+- `anthropic/claude-3-haiku` - Швидкий Claude
+- `anthropic/claude-3-sonnet` - Балансований Claude
+- `anthropic/claude-3-opus` - Найпотужніший Claude
+
+**Використання CLI з LLM:**
+```bash
+# Запустити з підтримкою LLM
+python -c "from src.mova.cli.cli import main; main()" run examples/config.json \
+  --llm-api-key "your-api-key" \
+  --llm-model "openai/gpt-4"
+```
+
+### ⚙️ Система пресетів
+
+MOVA SDK 2.2 представляє потужну систему пресетів для попередньо визначених конфігурацій LLM:
+
+```python
+from src.mova.core.engine import MovaEngine
+from src.mova.config.loader import load_config
+
+# Завантажте конфігурацію з пресетами
+config = load_config("examples/config.yaml")
+engine = MovaEngine(config=config)
+
+# Використовуйте різні пресети для різних завдань
+# Пресет для загальної розмови
+session_general = engine.create_session("user123", preset="general")
+
+# Пресет для творчого письма
+session_creative = engine.create_session("user123", preset="creative")
+
+# Пресет для технічного аналізу
+session_technical = engine.create_session("user123", preset="technical")
+```
+
+**Доступні пресети:**
+- `general` - Балансовий для повсякденних розмов
+- `creative` - Покращений для творчого письма
+- `technical` - Оптимізований для технічного аналізу
+- `concise` - Короткі та по суті відповіді
+
+**Приклад конфігурації:**
+```yaml
+llm:
+  provider: openrouter
+  api_key_env: OPENROUTER_API_KEY
+  base_url: https://openrouter.ai/api/v1
+  default_model: openrouter/anthropic/claude-3-haiku
+
+presets:
+  general:
+    model: openrouter/anthropic/claude-3-haiku
+    temperature: 0.3
+    max_tokens: 1024
+    system: "Ви - корисний асистент."
+  
+  creative:
+    model: openai/gpt-4
+    temperature: 0.8
+    max_tokens: 2048
+    system: "Ви - асистент з творчого письма."
+  
+  technical:
+    model: anthropic/claude-3-sonnet
+    temperature: 0.1
+    max_tokens: 1536
+    system: "Ви - технічний експерт."
+```
+
+### 🛠️ Підтримка Tool-Calling
+
+MOVA SDK 2.2 включає розширені можливості tool-calling з інтеграцією OpenRouter:
+
+```python
+from src.mova.core.engine import MovaEngine
+from src.mova.core.tools.registry import ToolRegistry
+
+# Ініціалізуйте двигун з підтримкою інструментів
+engine = MovaEngine()
+
+# Зареєструйте інструменти
+registry = ToolRegistry()
+
+# Визначте інструмент для погоди
+weather_tool = {
+    "name": "get_weather",
+    "description": "Отримати поточну інформацію про погоду для локації",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "location": {
+                "type": "string",
+                "description": "Місто та область, наприклад, Київ, Україна"
+            }
+        },
+        "required": ["location"]
+    }
+}
+
+# Додайте інструмент до реєстру
+registry.register_tool("get_weather", weather_tool)
+
+# Створіть протокол з tool-calling
+protocol = Protocol(
+    protocol_id="weather_assistant",
+    name="Weather Assistant",
+    steps=[
+        ProtocolStep(
+            id="step1",
+            action=ActionType.PROMPT,
+            prompt="Яка погода в {session.data.location}?",
+            tools=["get_weather"]
+        )
+    ]
+)
+
+engine.add_protocol(protocol)
+
+# Використання
+session = engine.create_session("user123")
+engine.update_session_data(session.session_id, {"location": "Київ, Україна"})
+result = engine.execute_protocol("weather_assistant", session.session_id)
+print(result["response"])
+```
+
+**Можливості Tool-Calling:**
+- **Динамічний вибір інструментів**: Інструменти вибираються на основі аналізу LLM
+- **Витягування параметрів**: Автоматичне витягування параметрів з введення користувача
+- **Обробка помилок**: Гнучка обробка помилок виконання інструментів
+- **Інтеграція результатів**: Результати інструментів інтегруються назад в розмову
+- **Паралельне виконання**: Підтримка паралельного виконання інструментів, коли це доречно
+
+**Використання CLI з інструментами:**
+```bash
+# Запустити з підтримкою інструментів
+python -c "from src.mova.cli.cli import main; main()" run examples/presets_and_tool_calling_example.json \
+  --tools-enabled \
+  --tools-dir examples/tools/
+```
+
+### 🧠 Система пам'яті
+
+MOVA SDK 2.2 включає складну систему пам'яті для контекстно-орієнтованих розмов:
+
+```python
+from src.mova.core.engine import MovaEngine
+from src.mova.core.memory_system import MemorySystem
+
+# Ініціалізуйте двигун з підтримкою пам'яті
+engine = MovaEngine()
+
+# Доступ до системи пам'яті
+memory = engine.memory_system
+
+# Збережіть інформацію в пам'яті
+memory.add_to_memory(
+    session_id="user123",
+    content="Користувач віддає перевагу коротким відповідям",
+    memory_type="semantic",
+    importance=0.8
+)
+
+# Отримайте релевантний контекст
+context = memory.get_relevant_context(
+    session_id="user123",
+    query="Які переваги користувача?",
+    limit=5
+)
+
+# Пошук в пам'яті
+results = memory.search_memory(
+    session_id="user123",
+    query="переваги",
+    memory_type="semantic"
+)
+```
+
+**Типи пам'яті:**
+- **Короткочасна пам'ять**: Тимчасовий контекст для поточної розмови
+- **Епізодична пам'ять**: Зберігає конкретні події та взаємодії
+- **Семантична пам'ять**: Загальні знання та переваги
+- **Робоча пам'ять**: Активна обробка поточної інформації
+
+**Можливості пам'яті:**
+- **Автоматичне отримання контексту**: Релевантні спогади автоматично отримуються
+- **Оцінювання важливості**: Спогади оцінюються за важливістю та релевантністю
+- **Консолідація пам'яті**: Важливі короткочасні спогади переносяться в довготривалу пам'ять
+- **Пошук в пам'яті**: Повнотекстовий пошук по всіх типах пам'яті
+- **Управління пам'яттю**: Інструменти для управління та очищення спогадів
+
+**Використання CLI з пам'яттю:**
+```bash
+# Запустити з підтримкою пам'яті
+python -c "from src.mova.cli.cli import main; main()" run examples/config.json \
+  --memory-enabled \
+  --memory-ttl 86400  # 24 години
 ```
 
 ### Redis інтеграція
