@@ -5,7 +5,6 @@ Command Line Interface for MOVA language
 
 import click
 import json
-import os
 from pathlib import Path
 from rich.console import Console
 from rich.table import Table
@@ -21,7 +20,7 @@ from ..ml.integration import MLIntegration
 from ..webhook_integration import get_webhook_integration
 from ..redis_manager import get_redis_manager
 from ..cache import get_cache
-from ..config import get_config_value, set_config_value
+from ..config.loader import load_config_from_file
 
 
 console = Console()
@@ -29,18 +28,31 @@ console = Console()
 
 @click.group()
 @click.version_option(version="2.2.0", prog_name="MOVA")
-@click.option('--redis-url', default=None, help='Redis connection URL / URL підключення до Redis')
-@click.option('--llm-api-key', default=None, help='OpenRouter API key / OpenRouter API ключ')
-@click.option('--llm-model', default='openai/gpt-3.5-turbo', help='LLM model to use / Модель LLM для використання')
-@click.option('--llm-temperature', default=0.7, type=float, help='LLM temperature (0.0-2.0) / Температура LLM')
-@click.option('--llm-max-tokens', default=1000, type=int, help='LLM max tokens / Максимальна кількість токенів')
-@click.option('--llm-timeout', default=30, type=int, help='LLM timeout in seconds / Таймаут LLM в секундах')
-@click.option('--webhook-enabled', is_flag=True, help='Enable webhook integration / Увімкнути інтеграцію webhook')
-@click.option('--cache-enabled', is_flag=True, help='Enable caching / Увімкнути кешування')
-@click.option('--ml-enabled', is_flag=True, help='Enable ML integration / Увімкнути ML інтеграцію')
+@click.option('--config-file', '-c', type=click.Path(exists=True),
+              help='Configuration file path / Шлях до файлу конфігурації')
+@click.option('--redis-url', default=None,
+              help='Redis connection URL / URL підключення до Redis')
+@click.option('--llm-api-key', default=None,
+              help='OpenRouter API key / OpenRouter API ключ')
+@click.option('--llm-model', default='openai/gpt-3.5-turbo',
+              help='LLM model to use / Модель LLM для використання')
+@click.option('--llm-temperature', default=0.7, type=float,
+              help='LLM temperature (0.0-2.0) / Температура LLM')
+@click.option('--llm-max-tokens', default=1000, type=int,
+              help='LLM max tokens / Максимальна кількість токенів')
+@click.option('--llm-timeout', default=30, type=int,
+              help='LLM timeout in seconds / Таймаут LLM в секундах')
+@click.option('--preset', '-p', default=None,
+              help='LLM preset to use / LLM пресет для використання')
+@click.option('--webhook-enabled', is_flag=True,
+              help='Enable webhook integration / Увімкнути інтеграцію webhook')
+@click.option('--cache-enabled', is_flag=True,
+              help='Enable caching / Увімкнути кешування')
+@click.option('--ml-enabled', is_flag=True,
+              help='Enable ML integration / Увімкнути ML інтеграцію')
 @click.pass_context
-def main(ctx, redis_url, llm_api_key, llm_model, llm_temperature, llm_max_tokens, llm_timeout, 
-         webhook_enabled, cache_enabled, ml_enabled):
+def main(ctx, config_file, redis_url, llm_api_key, llm_model, llm_temperature,
+         llm_max_tokens, llm_timeout, preset, webhook_enabled, cache_enabled, ml_enabled):
     """
     MOVA - Machine-Operable Verbal Actions
     
@@ -49,23 +61,35 @@ def main(ctx, redis_url, llm_api_key, llm_model, llm_temperature, llm_max_tokens
     """
     # Store global options in context
     ctx.ensure_object(dict)
+    ctx.obj['config_file'] = config_file
     ctx.obj['redis_url'] = redis_url
     ctx.obj['llm_api_key'] = llm_api_key
     ctx.obj['llm_model'] = llm_model
     ctx.obj['llm_temperature'] = llm_temperature
     ctx.obj['llm_max_tokens'] = llm_max_tokens
     ctx.obj['llm_timeout'] = llm_timeout
+    ctx.obj['preset'] = preset
     ctx.obj['webhook_enabled'] = webhook_enabled
     ctx.obj['cache_enabled'] = cache_enabled
     ctx.obj['ml_enabled'] = ml_enabled
     
-    # Initialize integrations based on flags
-    if webhook_enabled:
-        set_config_value("webhook_enabled", True)
-    if cache_enabled:
-        set_config_value("cache_enabled", True)
-    if ml_enabled:
-        set_config_value("ml_enabled", True)
+    # Load configuration if provided
+    config = None
+    if config_file:
+        try:
+            config = load_config_from_file(config_file)
+            ctx.obj['config'] = config
+            console.print(f"📄 Configuration loaded from: {config_file}")
+        except Exception as e:
+            console.print(f"❌ Failed to load configuration: {e}", style="red")
+        try:
+            config = load_config_from_file(config_file)
+            console.print(f"✅ Configuration loaded from: {config_file}")
+        except Exception as e:
+            console.print(f"❌ Failed to load configuration: {e}", style="red")
+    
+    # Store config in context
+    ctx.obj['config'] = config
 
 
 @main.command()
@@ -195,6 +219,9 @@ def run(ctx, file_path, session_id, verbose, step_by_step):
         # Parse file
         data = parser.parse_file(str(file_path))
         
+        # Get configuration from context
+        config = ctx.obj.get('config')
+        
         # Initialize engine with Redis and LLM if provided
         engine = MovaEngine(
             redis_url=redis_url,
@@ -204,13 +231,38 @@ def run(ctx, file_path, session_id, verbose, step_by_step):
         
         # Update LLM configuration if provided
         if engine.llm_client:
-            engine.llm_client.config.temperature = llm_temperature
-            engine.llm_client.config.max_tokens = llm_max_tokens
-            engine.llm_client.config.timeout = llm_timeout
+            # Use preset if specified
+            preset_name = ctx.obj.get('preset')
+            if preset_name and config and config.presets:
+                preset = config.presets.get(preset_name)
+                if preset:
+                    console.print(f"🎛️  Using preset: {preset_name}")
+                    # Apply preset configuration
+                    if preset.model:
+                        engine.llm_client.model = preset.model
+                    if preset.temperature is not None:
+                        engine.llm_client.temperature = preset.temperature
+                    if preset.max_tokens is not None:
+                        engine.llm_client.max_tokens = preset.max_tokens
+                    if preset.timeout is not None:
+                        engine.llm_client.timeout = preset.timeout
+                else:
+                    console.print(f"⚠️  Preset '{preset_name}' not found", style="yellow")
+            
+            # Override with command line options if provided
+            if llm_api_key:
+                engine.llm_client.api_key = llm_api_key
+            if llm_model:
+                engine.llm_client.model = llm_model
+            if llm_temperature is not None:
+                engine.llm_client.temperature = llm_temperature
+            if llm_max_tokens is not None:
+                engine.llm_client.max_tokens = llm_max_tokens
+            if llm_timeout is not None:
+                engine.llm_client.timeout = llm_timeout
         
         # Initialize integrations
         webhook_integration = get_webhook_integration()
-        cache_manager = get_cache()
         ml_integration = MLIntegration() if ctx.obj.get('ml_enabled') else None
         
         if redis_url:
@@ -333,9 +385,6 @@ def test(ctx, file_path, step_id, api_id, verbose, dry_run):
         redis_url = ctx.obj.get('redis_url')
         llm_api_key = ctx.obj.get('llm_api_key')
         llm_model = ctx.obj.get('llm_model')
-        llm_temperature = ctx.obj.get('llm_temperature')
-        llm_max_tokens = ctx.obj.get('llm_max_tokens')
-        llm_timeout = ctx.obj.get('llm_timeout')
         
         file_path = Path(file_path)
         
@@ -348,12 +397,41 @@ def test(ctx, file_path, step_id, api_id, verbose, dry_run):
         # Parse file
         data = parser.parse_file(str(file_path))
         
-        # Initialize engine
+        # Get configuration from context
+        config = ctx.obj.get('config')
+        
+        # Initialize engine with Redis and LLM if provided
         engine = MovaEngine(
             redis_url=redis_url,
             llm_api_key=llm_api_key,
             llm_model=llm_model
         )
+        
+        # Update LLM configuration if provided
+        if engine.llm_client:
+            # Use preset if specified
+            preset_name = ctx.obj.get('preset')
+            if preset_name and config and config.presets:
+                preset = config.presets.get(preset_name)
+                if preset:
+                    console.print(f"🎛️  Using preset: {preset_name}")
+                    # Apply preset configuration
+                    if preset.model:
+                        engine.llm_client.model = preset.model
+                    if preset.temperature is not None:
+                        engine.llm_client.temperature = preset.temperature
+                    if preset.max_tokens is not None:
+                        engine.llm_client.max_tokens = preset.max_tokens
+                    if preset.timeout is not None:
+                        engine.llm_client.timeout = preset.timeout
+                else:
+                    console.print(f"⚠️  Preset '{preset_name}' not found", style="yellow")
+            
+            # Override with command line options if provided
+            if llm_api_key:
+                engine.llm_client.api_key = llm_api_key
+            if llm_model:
+                engine.llm_client.model = llm_model
         
         console.print(Panel("🧪 MOVA Component Testing", style="blue"))
         

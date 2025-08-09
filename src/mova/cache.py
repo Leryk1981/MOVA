@@ -187,6 +187,10 @@ def cached(ttl: Optional[int] = None, key_func=None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # Check if cache is enabled
+            if not cache_manager.cache_enabled:
+                return func(*args, **kwargs)
+                
             # Generate cache key
             if key_func:
                 cache_key = key_func(*args, **kwargs)
@@ -211,6 +215,82 @@ def cached(ttl: Optional[int] = None, key_func=None):
     return decorator
 
 
-def get_cache() -> CacheManager:
-    """Get global cache manager / Отримати глобальний менеджер кешу"""
-    return cache_manager 
+def async_cached(ttl: Optional[int] = None, key_func=None):
+    """
+    Decorator for caching async function results
+    Декоратор для кешування результатів асинхронних функцій
+    
+    Args:
+        ttl: Time to live in seconds / Час життя в секундах
+        key_func: Custom key generation function / Функція генерації ключа
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Check if cache is enabled
+            if not cache_manager.cache_enabled:
+                return await func(*args, **kwargs)
+                
+            # Generate cache key
+            if key_func:
+                cache_key = key_func(*args, **kwargs)
+            else:
+                cache_key = cache_manager._generate_key({
+                    'func': func.__name__,
+                    'args': args,
+                    'kwargs': kwargs
+                })
+            
+            # Try to get from cache
+            cached_result = cache_manager.get(cache_key)
+            if cached_result is not None:
+                return cached_result
+            
+            # Execute function and cache result
+            result = await func(*args, **kwargs)
+            cache_manager.set(cache_key, result, ttl)
+            
+            return result
+        return wrapper
+    return decorator
+    
+    
+    def async_cached(ttl: Optional[int] = None, key_func=None):
+        """
+        Decorator for caching async function results
+        Декоратор для кешування результатів асинхронних функцій
+        
+        Args:
+            ttl: Time to live in seconds / Час життя в секундах
+            key_func: Custom key generation function / Функція генерації ключа
+        """
+        def decorator(func):
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                # Generate cache key
+                if key_func:
+                    cache_key = key_func(*args, **kwargs)
+                else:
+                    cache_key = cache_manager._generate_key({
+                        'func': func.__name__,
+                        'args': args,
+                        'kwargs': kwargs
+                    })
+                
+                # Try to get from cache
+                cached_result = cache_manager.get(cache_key)
+                if cached_result is not None:
+                    return cached_result
+                
+                # Execute function and cache result
+                result = await func(*args, **kwargs)
+                cache_manager.set(cache_key, result, ttl)
+                
+                return result
+            return wrapper
+        return decorator
+    
+    
+    def get_cache() -> CacheManager:
+        """Get global cache manager / Отримати глобальний менеджер кешу"""
+        return cache_manager

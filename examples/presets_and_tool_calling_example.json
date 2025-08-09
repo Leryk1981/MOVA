@@ -1,0 +1,264 @@
+{
+  "version": "2.2",
+  "description": "Example of using Presets and Tool-Calling in MOVA SDK 2.2",
+  "presets": {
+    "creative": {
+      "name": "creative",
+      "description": "Creative preset with high temperature",
+      "model": "openai/gpt-4",
+      "temperature": 0.9,
+      "max_tokens": 2000,
+      "system_message": "You are a creative assistant that generates innovative ideas and solutions."
+    },
+    "analytical": {
+      "name": "analytical",
+      "description": "Analytical preset with low temperature",
+      "model": "openai/gpt-4",
+      "temperature": 0.2,
+      "max_tokens": 1500,
+      "system_message": "You are an analytical assistant that provides precise, data-driven responses."
+    },
+    "assistant": {
+      "name": "assistant",
+      "description": "Helpful assistant preset",
+      "model": "openai/gpt-3.5-turbo",
+      "temperature": 0.7,
+      "max_tokens": 1000,
+      "system_message": "You are a helpful assistant that provides clear and concise answers."
+    }
+  },
+  "protocols": [
+    {
+      "name": "schedule_meeting_with_reminder",
+      "description": "Schedule a meeting and send reminder notifications",
+      "steps": [
+        {
+          "id": "get_user_info",
+          "action": "prompt",
+          "prompt": "Hello! I'll help you schedule a meeting. What is your name and email address?",
+          "preset": "assistant"
+        },
+        {
+          "id": "get_meeting_details",
+          "action": "prompt",
+          "prompt": "Great! Now please provide the meeting details: title, date, time, and duration.",
+          "preset": "assistant"
+        },
+        {
+          "id": "schedule_meeting",
+          "action": "prompt",
+          "prompt": "Based on the information provided, please schedule the meeting using the calendar tool.",
+          "preset": "assistant",
+          "tools": ["calendar.create_event"],
+          "continue_after_tools": true
+        },
+        {
+          "id": "confirm_meeting",
+          "action": "prompt",
+          "prompt": "The meeting has been scheduled. Would you like to send a reminder notification?",
+          "preset": "assistant"
+        },
+        {
+          "id": "send_reminder",
+          "action": "prompt",
+          "prompt": "Please send a reminder notification for the scheduled meeting.",
+          "preset": "assistant",
+          "tools": ["notifier.send_notification"],
+          "continue_after_tools": true
+        },
+        {
+          "id": "end",
+          "action": "end"
+        }
+      ]
+    },
+    {
+      "name": "customer_service_workflow",
+      "description": "Customer service workflow with CRM integration",
+      "steps": [
+        {
+          "id": "greet_customer",
+          "action": "prompt",
+          "prompt": "Hello! Welcome to our customer service. How can I help you today?",
+          "preset": "assistant"
+        },
+        {
+          "id": "get_customer_info",
+          "action": "prompt",
+          "prompt": "To better assist you, could you please provide your name and phone number?",
+          "preset": "assistant"
+        },
+        {
+          "id": "find_or_create_customer",
+          "action": "prompt",
+          "prompt": "Please look up the customer information using the CRM tool. If the customer doesn't exist, create a new profile.",
+          "preset": "assistant",
+          "tools": ["crm.find_or_create_customer"],
+          "continue_after_tools": true
+        },
+        {
+          "id": "handle_request",
+          "action": "prompt",
+          "prompt": "Based on the customer information, please help with their request.",
+          "preset": "analytical"
+        },
+        {
+          "id": "update_customer_record",
+          "action": "prompt",
+          "prompt": "Please update the customer record with the interaction details.",
+          "preset": "assistant",
+          "tools": ["crm.update_customer"],
+          "continue_after_tools": true
+        },
+        {
+          "id": "send_follow_up",
+          "action": "prompt",
+          "prompt": "Would you like to send a follow-up message to the customer?",
+          "preset": "assistant"
+        },
+        {
+          "id": "end",
+          "action": "end"
+        }
+      ]
+    },
+    {
+      "name": "creative_brainstorming",
+      "description": "Creative brainstorming session with idea generation",
+      "steps": [
+        {
+          "id": "introduce_session",
+          "action": "prompt",
+          "prompt": "Welcome to our creative brainstorming session! What topic or challenge would you like to explore?",
+          "preset": "creative"
+        },
+        {
+          "id": "generate_ideas",
+          "action": "prompt",
+          "prompt": "Let's generate some creative ideas for this topic. Please think outside the box and propose innovative solutions.",
+          "preset": "creative"
+        },
+        {
+          "id": "schedule_follow_up",
+          "action": "prompt",
+          "prompt": "Great ideas! Would you like to schedule a follow-up meeting to discuss these ideas further?",
+          "preset": "assistant"
+        },
+        {
+          "id": "create_event_if_needed",
+          "action": "prompt",
+          "prompt": "If the user wants to schedule a follow-up, please create the calendar event.",
+          "preset": "assistant",
+          "tools": ["calendar.create_event"],
+          "continue_after_tools": true
+        },
+        {
+          "id": "end",
+          "action": "end"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "id": "calendar.create_event",
+      "name": "Calendar Create Event",
+      "description": "Create a calendar event",
+      "endpoint": "https://api.calendar.example.com/events",
+      "method": "POST",
+      "parameters": {
+        "title": {
+          "type": "string",
+          "description": "Event title"
+        },
+        "date": {
+          "type": "string",
+          "description": "Event date (YYYY-MM-DD)"
+        },
+        "time": {
+          "type": "string",
+          "description": "Event time (HH:MM)"
+        },
+        "duration": {
+          "type": "integer",
+          "description": "Duration in minutes"
+        },
+        "attendees": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of attendee emails"
+        }
+      }
+    },
+    {
+      "id": "crm.find_or_create_customer",
+      "name": "CRM Find or Create Customer",
+      "description": "Find existing customer or create new one",
+      "endpoint": "https://api.crm.example.com/customers/find-or-create",
+      "method": "POST",
+      "parameters": {
+        "name": {
+          "type": "string",
+          "description": "Customer name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Customer phone number"
+        },
+        "email": {
+          "type": "string",
+          "description": "Customer email address"
+        }
+      }
+    },
+    {
+      "id": "crm.update_customer",
+      "name": "CRM Update Customer",
+      "description": "Update customer information",
+      "endpoint": "https://api.crm.example.com/customers/update",
+      "method": "PUT",
+      "parameters": {
+        "customer_id": {
+          "type": "string",
+          "description": "Customer ID"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Interaction notes"
+        },
+        "last_contact": {
+          "type": "string",
+          "description": "Last contact date (YYYY-MM-DD)"
+        }
+      }
+    },
+    {
+      "id": "notifier.send_notification",
+      "name": "Notifier Send Notification",
+      "description": "Send SMS or email notification",
+      "endpoint": "https://api.notifier.example.com/send",
+      "method": "POST",
+      "parameters": {
+        "phone": {
+          "type": "string",
+          "description": "Phone number for SMS"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address"
+        },
+        "message": {
+          "type": "string",
+          "description": "Notification message"
+        },
+        "notification_type": {
+          "type": "string",
+          "enum": ["sms", "email", "both"],
+          "default": "sms"
+        }
+      }
+    }
+  ]
+}

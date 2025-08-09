@@ -9,9 +9,10 @@ import requests
 from typing import Dict, Any, Optional, Union
 from urllib.parse import urljoin
 from loguru import logger
+from concurrent.futures import ThreadPoolExecutor
 
 from .config import get_config_value
-from .cache import cached
+from .cache import cached, async_cached
 
 
 class MovaHTTPClient:

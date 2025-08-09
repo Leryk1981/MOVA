@@ -3,69 +3,45 @@ Configuration management for MOVA SDK
 Управління конфігурацією для MOVA SDK
 """
 
-import os
 from typing import Dict, Any, Optional
 from pathlib import Path
-from pydantic import BaseModel, Field
+
+# Import new configuration components
+from .config import (
+    MOVAConfigSchema,
+    load_config
+)
 
 
-class MovaConfig(BaseModel):
+class MovaConfig(MOVAConfigSchema):
     """
-    Configuration settings for MOVA SDK
-    Налаштування конфігурації для MOVA SDK
+    Legacy configuration class for backward compatibility
+    Клас конфігурації для зворотної сумісності
     """
     
-    # Logging settings
-    log_level: str = Field(default="INFO", description="Logging level")
-    log_file: Optional[str] = Field(default=None, description="Log file path")
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Initialize with default values
+        self._config_data = load_config()
     
-    # API settings
-    api_timeout: int = Field(default=30, description="API request timeout in seconds")
-    api_retries: int = Field(default=3, description="Number of API retries")
-    api_rate_limit: int = Field(default=100, description="API rate limit per minute")
+    def __getattr__(self, name):
+        # Delegate to new configuration system
+        if hasattr(self._config_data, name):
+            return getattr(self._config_data, name)
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
     
-    # Cache settings
-    cache_enabled: bool = Field(default=True, description="Enable caching")
-    cache_ttl: int = Field(default=3600, description="Cache TTL in seconds")
-    cache_dir: str = Field(default=".mova_cache", description="Cache directory")
-    
-    # Security settings
-    encryption_enabled: bool = Field(default=False, description="Enable data encryption")
-    encryption_key: Optional[str] = Field(default=None, description="Encryption key")
-    
-    # Performance settings
-    max_concurrent_requests: int = Field(default=10, description="Max concurrent requests")
-    request_timeout: int = Field(default=30, description="Request timeout")
-    
-    # Development settings
-    debug_mode: bool = Field(default=False, description="Enable debug mode")
-    verbose_output: bool = Field(default=False, description="Enable verbose output")
-    
-    # Language settings
-    default_language: str = Field(default="en", description="Default language")
-    supported_languages: list = Field(default=["en", "uk"], description="Supported languages")
-    
-    # Webhook settings
-    webhook_enabled: bool = Field(default=True, description="Enable webhook support")
-    webhook_timeout: int = Field(default=30, description="Webhook request timeout in seconds")
-    webhook_max_retries: int = Field(default=3, description="Webhook max retries")
-    webhook_secret: Optional[str] = Field(default=None, description="Default webhook secret")
-    
-    # ML Integration settings
-    ml_enabled: bool = Field(default=True, description="Enable ML integration")
-    ml_models_dir: str = Field(default="models", description="ML models directory")
-    ml_confidence_threshold: float = Field(default=0.8, description="ML confidence threshold")
-    ml_batch_size: int = Field(default=32, description="ML batch size")
-    ml_max_concurrent_requests: int = Field(default=10, description="ML max concurrent requests")
-    ml_cache_predictions: bool = Field(default=True, description="Cache ML predictions")
-    ml_auto_retrain: bool = Field(default=False, description="Auto retrain ML models")
-    ml_retrain_interval: str = Field(default="7d", description="ML retrain interval")
-    ml_min_samples: int = Field(default=1000, description="ML minimum samples for retraining")
-    
-    model_config = {
-        "env_prefix": "MOVA_",
-        "case_sensitive": False
-    }
+    def __setattr__(self, name, value):
+        # Handle internal attributes
+        if name.startswith('_'):
+            super().__setattr__(name, value)
+        else:
+            # Delegate to new configuration system
+            if hasattr(self._config_data, name):
+                setattr(self._config_data, name, value)
+            else:
+                super().__setattr__(name, value)
 
 
 class ConfigManager:
@@ -80,22 +56,18 @@ class ConfigManager:
         Ініціалізація менеджера конфігурації
         
         Args:
-            config_file: Path to configuration file / Шлях до файлу конфігурації
+            config_file: Path to configuration file /
+                         Шлях до файлу конфігурації
         """
         self.config_file = config_file
         self.config = self._load_config()
     
     def _load_config(self) -> MovaConfig:
-        """Load configuration from file and environment / Завантажити конфігурацію з файлу та середовища"""
-        # Load from environment variables first
-        config = MovaConfig()
-        
-        # Load from config file if specified
-        if self.config_file and Path(self.config_file).exists():
-            # Here you could load from YAML/JSON config file
-            pass
-        
-        return config
+        """Load configuration from file and environment /
+           Завантажити конфігурацію з файлу та середовища"""
+        # Use new configuration loader
+        config_data = load_config(self.config_file)
+        return MovaConfig(**config_data.model_dump())
     
     def get(self, key: str, default: Any = None) -> Any:
         """Get configuration value / Отримати значення конфігурації"""
@@ -107,20 +79,25 @@ class ConfigManager:
             setattr(self.config, key, value)
     
     def update(self, **kwargs) -> None:
-        """Update multiple configuration values / Оновити кілька значень конфігурації"""
+        """Update multiple configuration values /
+           Оновити кілька значень конфігурації"""
         for key, value in kwargs.items():
             self.set(key, value)
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert configuration to dictionary / Конвертувати конфігурацію в словник"""
-        return self.config.model_dump()
+        """Convert configuration to dictionary /
+           Конвертувати конфігурацію в словник"""
+        return self.config._config_data.model_dump()
     
     def validate(self) -> bool:
         """Validate configuration / Валідувати конфігурацію"""
         try:
             # Validate required settings
-            if self.config.encryption_enabled and not self.config.encryption_key:
-                raise ValueError("Encryption key required when encryption is enabled")
+            if (self.config.encryption_enabled and
+                    not self.config.encryption_key):
+                raise ValueError(
+                    "Encryption key required when encryption is enabled"
+                )
             
             # Validate cache directory
             if self.config.cache_enabled:
@@ -149,4 +126,4 @@ def get_config_value(key: str, default: Any = None) -> Any:
 
 def set_config_value(key: str, value: Any) -> None:
     """Set configuration value / Встановити значення конфігурації"""
-    config_manager.set(key, value) 
+    config_manager.set(key, value)

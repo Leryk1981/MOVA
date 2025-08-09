@@ -6,15 +6,18 @@ MOVA Engine - Основний обробний движок
 import json
 import uuid
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, Any, Optional, List
 from loguru import logger
 
 from .models import (
-    Intent, Protocol, ToolAPI, Instruction, Profile, 
+    Intent, Protocol, ToolAPI, Instruction, Profile,
     Session, Contract, ProtocolStep, Condition
 )
 from ..redis_manager import get_redis_manager, MovaRedisManager
-from ..llm_client import get_llm_client, MovaLLMClient
+from .llm_client import get_llm_client, LLMClient
+from .tool_router import ToolRouter, ToolRegistry
+from .tools.builtin import CalendarTool, CRMTool, NotifierTool
+from .memory_system import MemorySystem, MemoryType, MemoryPriority
 
 
 class MovaEngine:
@@ -23,14 +26,21 @@ class MovaEngine:
     Основний обробний движок мови MOVA
     """
     
-    def __init__(self, redis_url: Optional[str] = None, llm_api_key: Optional[str] = None, llm_model: str = "openai/gpt-3.5-turbo"):
+    def __init__(self, redis_url: Optional[str] = None,
+                 llm_api_key: Optional[str] = None,
+                 llm_model: str = "openrouter/anthropic/claude-3-haiku",
+                 memory_storage_path: Optional[str] = None):
         """
         Initialize MOVA engine / Ініціалізація движка MOVA
         
         Args:
-            redis_url: Redis connection URL (optional) / URL підключення до Redis (опціонально)
-            llm_api_key: OpenRouter API key (optional) / OpenRouter API ключ (опціонально)
+            redis_url: Redis connection URL (optional) /
+                       URL підключення до Redis (опціонально)
+            llm_api_key: OpenRouter API key (optional) /
+                         OpenRouter API ключ (опціонально)
             llm_model: Default LLM model / Модель LLM за замовчуванням
+            memory_storage_path: Path to memory storage file /
+                                 Шлях до файлу зберігання пам'яті
         """
         self.intents: Dict[str, Intent] = {}
         self.protocols: Dict[str, Protocol] = {}
@@ -45,22 +55,33 @@ class MovaEngine:
         if redis_url:
             try:
                 self.redis_manager = get_redis_manager(redis_url)
-                logger.info(f"MOVA Engine initialized with Redis at {redis_url}")
+                logger.info(
+                    f"MOVA Engine initialized with Redis at {redis_url}")
             except Exception as e:
-                logger.warning(f"Failed to initialize Redis: {e}. Using in-memory storage.")
+                logger.warning(
+                    f"Failed to initialize Redis: {e}. Using in-memory storage.")
         else:
             logger.info("MOVA Engine initialized with in-memory storage")
         
-        # Initialize LLM client if API key provided
-        self.llm_client: Optional[MovaLLMClient] = None
-        if llm_api_key:
-            try:
-                self.llm_client = get_llm_client(llm_api_key, llm_model)
-                logger.info(f"MOVA Engine initialized with LLM model: {llm_model}")
-            except Exception as e:
-                logger.warning(f"Failed to initialize LLM client: {e}. Using mock responses.")
-        else:
-            logger.info("MOVA Engine initialized with mock LLM responses")
+        # Initialize LLM client with new implementation
+        self.llm_client: Optional[LLMClient] = None
+        try:
+            self.llm_client = get_llm_client()
+            logger.info("MOVA Engine initialized with new LLM client")
+        except Exception as e:
+            logger.warning(
+                f"Failed to initialize LLM client: {e}. Using mock responses.")
+        
+        # Initialize ToolRouter and ToolRegistry
+        self.tool_registry = ToolRegistry()
+        self.tool_router = ToolRouter(self.tool_registry)
+        
+        # Initialize Memory System
+        self.memory_system = MemorySystem(storage_path=memory_storage_path)
+        logger.info("MOVA Engine initialized with Memory System")
+        
+        # Register built-in tools
+        self._register_builtin_tools()
     
     def add_intent(self, intent: Intent) -> bool:
         """
@@ -254,15 +275,33 @@ class MovaEngine:
             prompt = step.prompt
             session_data = session.data
             
+            # Get conversation history from memory system
+            conversation_history = []
+            if self.memory_system:
+                history = self.memory_system.get_conversation_history(
+                    session.session_id, limit=10
+                )
+                conversation_history = history
+            
             # Substitute session data placeholders
             for key, value in session_data.items():
                 placeholder = f"{{session.data.{key}}}"
                 if placeholder in prompt:
                     prompt = prompt.replace(placeholder, str(value))
             
-            # Use LLM client if available, otherwise use mock
+            # Use new LLM client with presets and tools support
             if self.llm_client:
                 logger.info(f"Using LLM client for prompt: {prompt[:100]}...")
+                
+                # Prepare messages for LLM
+                messages = []
+                
+                # Add conversation history
+                for turn in conversation_history:
+                    messages.append({
+                        "role": turn["role"],
+                        "content": turn["content"]
+                    })
                 
                 # Get system message from profile if available
                 system_message = None
@@ -271,11 +310,120 @@ class MovaEngine:
                     if hasattr(profile, 'preferences') and profile.preferences:
                         system_message = f"User preferences: {profile.preferences}"
                 
-                response = self.llm_client.generate_response(
-                    prompt=prompt,
-                    system_message=system_message,
-                    **kwargs
+                # Add system message if available
+                if system_message:
+                    messages.append({
+                        "role": "system",
+                        "content": system_message
+                    })
+                
+                # Add user prompt
+                messages.append({
+                    "role": "user",
+                    "content": prompt
+                })
+                
+                # Get preset from step or use default
+                preset = step.preset if hasattr(step, 'preset') else None
+                
+                # Get tools if specified
+                tools = []
+                if hasattr(step, 'tools') and step.tools:
+                    for tool_name in step.tools:
+                        if tool_name in self.tools:
+                            tool = self.tools[tool_name]
+                            tools.append({
+                                "type": "function",
+                                "function": {
+                                    "name": tool.id,
+                                    "description": tool.description,
+                                    "parameters": tool.parameters or {}
+                                }
+                            })
+                
+                # Call LLM with preset and tools support
+                response_data = self.llm_client.chat(
+                    messages=messages,
+                    preset=preset,
+                    tools=tools if tools else None
                 )
+                
+                if response_data["success"]:
+                    response = response_data["text"]
+                    
+                    # Store conversation turn in memory system
+                    if self.memory_system:
+                        self.memory_system.add_conversation_turn(
+                            session_id=session.session_id,
+                            user_id=session.user_id,
+                            role="user",
+                            content=prompt
+                        )
+                        self.memory_system.add_conversation_turn(
+                            session_id=session.session_id,
+                            user_id=session.user_id,
+                            role="assistant",
+                            content=response
+                        )
+                    
+                    # Handle tool calls if any
+                    if response_data.get("tool_calls"):
+                        for tool_call in response_data["tool_calls"]:
+                            tool_name = tool_call["name"]
+                            # Execute tool call
+                            if tool_name in self.tools:
+                                tool = self.tools[tool_name]
+                                try:
+                                    tool_result = self._execute_api_call(tool, session.data)
+                                    
+                                    # Add tool result to session
+                                    session.data[f"tool_{tool_name}_result"] = tool_result
+                                    
+                                    # Store tool result in memory system
+                                    if self.memory_system:
+                                        self.memory_system.add_memory(
+                                            content=f"Tool {tool_name} result: {json.dumps(tool_result)}",
+                                            memory_type=MemoryType.CONTEXT,
+                                            session_id=session.session_id,
+                                            user_id=session.user_id,
+                                            priority=MemoryPriority.NORMAL,
+                                            metadata={"tool_name": tool_name}
+                                        )
+                                    
+                                    # If tool result needs to be sent back to LLM
+                                    if hasattr(step, 'continue_after_tools') and step.continue_after_tools:
+                                        messages.append({
+                                            "role": "assistant",
+                                            "content": response
+                                        })
+                                        messages.append({
+                                            "role": "tool",
+                                            "content": json.dumps(tool_result),
+                                            "tool_call_id": tool_name
+                                        })
+                                        
+                                        # Get follow-up response from LLM
+                                        follow_up = self.llm_client.chat(
+                                            messages=messages,
+                                            preset=preset
+                                        )
+                                        
+                                        if follow_up["success"]:
+                                            response = follow_up["text"]
+                                            
+                                            # Store follow-up in memory system
+                                            if self.memory_system:
+                                                self.memory_system.add_conversation_turn(
+                                                    session_id=session.session_id,
+                                                    user_id=session.user_id,
+                                                    role="assistant",
+                                                    content=response
+                                                )
+                                except Exception as e:
+                                    logger.error(f"Tool execution failed: {e}")
+                else:
+                    logger.error(f"LLM request failed: {response_data.get('error')}")
+                    response = f"Error: {response_data.get('error')}"
             else:
                 logger.info("Using mock LLM response")
                 response = f"Mock LLM response for: {prompt}"
@@ -285,7 +433,11 @@ class MovaEngine:
             
             # Update session data in Redis if available
             if self.redis_manager:
-                self.redis_manager.update_session_data(session.session_id, f"step_{step.id}_response", response)
+                self.redis_manager.update_session_data(
+                    session.session_id,
+                    f"step_{step.id}_response",
+                    response
+                )
             
             return {"success": True, "response": response}
             
@@ -471,4 +623,131 @@ class MovaEngine:
         if session_id in self.sessions:
             self.sessions[session_id].data.update(data)
             return True
-        return False 
+        return False
+    
+    def _register_builtin_tools(self):
+        """Register built-in tools in the registry"""
+        try:
+            # Register calendar tool
+            calendar_tool = CalendarTool()
+            self.tool_registry.register_tool(calendar_tool)
+            logger.info(f"Tool '{calendar_tool.name}' registered")
+            
+            # Register CRM tool
+            crm_tool = CRMTool()
+            self.tool_registry.register_tool(crm_tool)
+            logger.info(f"Tool '{crm_tool.name}' registered")
+            
+            # Register notifier tool
+            notifier_tool = NotifierTool()
+            self.tool_registry.register_tool(notifier_tool)
+            logger.info(f"Tool '{notifier_tool.name}' registered")
+            
+            logger.info("All built-in tools registered successfully")
+        except Exception as e:
+            logger.error(f"Failed to register built-in tools: {e}")
+    
+    def get_memory_context(self, session_id: str, user_id: str,
+                          context_type: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get memory context for a session / Отримати контекст пам'яті для сесії
+        
+        Args:
+            session_id: Session identifier / Ідентифікатор сесії
+            user_id: User identifier / Ідентифікатор користувача
+            context_type: Type of context to retrieve / Тип контексту для отримання
+            
+        Returns:
+            Dict[str, Any]: Memory context / Контекст пам'яті
+        """
+        if not self.memory_system:
+            return {}
+        
+        return self.memory_system.get_context(
+            session_id=session_id,
+            user_id=user_id,
+            context_type=context_type
+        )
+    
+    def add_memory(self, content: str, memory_type: MemoryType,
+                  session_id: str, user_id: str,
+                  priority: MemoryPriority = MemoryPriority.NORMAL,
+                  metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Add memory entry / Додати запис пам'яті
+        
+        Args:
+            content: Memory content / Вміст пам'яті
+            memory_type: Type of memory / Тип пам'яті
+            session_id: Session identifier / Ідентифікатор сесії
+            user_id: User identifier / Ідентифікатор користувача
+            priority: Memory priority / Пріоритет пам'яті
+            metadata: Additional metadata / Додаткові метадані
+            
+        Returns:
+            bool: Success status / Статус успіху
+        """
+        if not self.memory_system:
+            return False
+        
+        try:
+            self.memory_system.add_memory(
+                content=content,
+                memory_type=memory_type,
+                session_id=session_id,
+                user_id=user_id,
+                priority=priority,
+                metadata=metadata or {}
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add memory: {e}")
+            return False
+    
+    def search_memory(self, query: str, session_id: Optional[str] = None,
+                     user_id: Optional[str] = None,
+                     memory_type: Optional[MemoryType] = None,
+                     limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Search memory entries / Пошук записів пам'яті
+        
+        Args:
+            query: Search query / Запит пошуку
+            session_id: Session identifier (optional) / Ідентифікатор сесії (опціонально)
+            user_id: User identifier (optional) / Ідентифікатор користувача (опціонально)
+            memory_type: Memory type filter (optional) / Фільтр типу пам'яті (опціонально)
+            limit: Maximum number of results (optional) / Максимальна кількість результатів (опціонально)
+            
+        Returns:
+            List[Dict[str, Any]]: Search results / Результати пошуку
+        """
+        if not self.memory_system:
+            return []
+        
+        return self.memory_system.search_memory(
+            query=query,
+            session_id=session_id,
+            user_id=user_id,
+            memory_type=memory_type,
+            limit=limit
+        )
+    
+    def get_conversation_history(self, session_id: str,
+                                limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Get conversation history for a session / Отримати історію розмови для сесії
+        
+        Args:
+            session_id: Session identifier / Ідентифікатор сесії
+            limit: Maximum number of turns (optional) / Максимальна кількість ходів (опціонально)
+            
+        Returns:
+            List[Dict[str, Any]]: Conversation history / Історія розмови
+        """
+        if not self.memory_system:
+            return []
+        
+        return self.memory_system.get_conversation_history(
+            session_id=session_id,
+            limit=limit
+        )

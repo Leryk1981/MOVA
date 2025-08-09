@@ -45,6 +45,7 @@ __all__ = [
     # Caching
     "CacheManager",
     "cached",
+    "async_cached",
     "get_cache",
     # HTTP Client
     "MovaHTTPClient",

@@ -1,0 +1,102 @@
+# MOVA SDK 2.2 Configuration Example
+# Приклад конфігурації MOVA SDK 2.2
+
+# LLM Configuration
+llm:
+  provider: "openrouter"
+  api_key: "${OPENROUTER_API_KEY}"  # Will be loaded from environment variable
+  base_url: "https://openrouter.ai/api/v1"
+  default_model: "openai/gpt-3.5-turbo"
+  timeout: 30
+  max_retries: 3
+
+# Preset Profiles
+presets:
+  creative:
+    name: "creative"
+    description: "Creative preset with high temperature"
+    model: "openai/gpt-4"
+    temperature: 0.9
+    max_tokens: 2000
+    system_message: "You are a creative assistant that generates innovative ideas and solutions."
+    
+  analytical:
+    name: "analytical"
+    description: "Analytical preset with low temperature"
+    model: "openai/gpt-4"
+    temperature: 0.2
+    max_tokens: 1500
+    system_message: "You are an analytical assistant that provides precise, data-driven responses."
+    
+  assistant:
+    name: "assistant"
+    description: "Helpful assistant preset"
+    model: "openai/gpt-3.5-turbo"
+    temperature: 0.7
+    max_tokens: 1000
+    system_message: "You are a helpful assistant that provides clear and concise answers."
+
+# Tool Configuration
+tools:
+  # Tool Policy Configuration
+  policy:
+    default_mode: "auto"  # auto, always, never
+    max_calls_per_session: 10
+    timeout_per_call: 30
+    
+  # Built-in Tools Configuration
+  builtin:
+    calendar:
+      enabled: true
+      api_key: "${CALENDAR_API_KEY}"
+      base_url: "https://api.calendar.example.com"
+      
+    crm:
+      enabled: true
+      api_key: "${CRM_API_KEY}"
+      base_url: "https://api.crm.example.com"
+      
+    notifier:
+      enabled: true
+      api_key: "${NOTIFIER_API_KEY}"
+      base_url: "https://api.notifier.example.com"
+      default_channel: "sms"
+
+# Redis Configuration
+redis:
+  url: "${REDIS_URL}"  # e.g., redis://localhost:6379
+  password: "${REDIS_PASSWORD}"
+  db: 0
+  ttl: 3600  # Session TTL in seconds
+
+# Cache Configuration
+cache:
+  enabled: true
+  backend: "redis"  # redis, memory
+  ttl: 300  # Cache TTL in seconds
+  max_size: 1000  # Maximum cache size
+
+# Webhook Configuration
+webhook:
+  enabled: false
+  url: "${WEBHOOK_URL}"
+  events:
+    - "session_started"
+    - "session_ended"
+    - "tool_called"
+    - "error_occurred"
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "mova.log"
+  max_size: "10MB"
+  backup_count: 5
+
+# Development Configuration
+development:
+  debug: false
+  mock_llm: false
+  mock_tools: false
+  test_mode: false
